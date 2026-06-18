@@ -1,4 +1,4 @@
-import { SQLViewEntry, SqlFile, DevelopmentGuideStep } from "./types";
+import type { SQLViewEntry, SqlFile, DevelopmentGuideStep } from "./types";
 
 export const INITIAL_MANIFEST: SQLViewEntry[] = [
   {

@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { INITIAL_MANIFEST, INITIAL_SQL_FILES } from "./data";
-import { SQLViewEntry, SqlFile } from "./types";
+import type { SQLViewEntry, SqlFile } from "./types";
 import GuideSection from "./components/GuideSection";
 import GeminiAssistant from "./components/GeminiAssistant";
 import { 
   FolderGit, FileCode, CheckCircle, AlertTriangle, Play, Plus, Trash2, 
-  Settings, ExternalLink, Terminal, Cpu, Layers, HelpCircle, Save, Info, RefreshCw
+  Settings, ExternalLink, Terminal, Cpu, Layers, HelpCircle, Save, Info, RefreshCw,
+  Maximize2, Minimize2
 } from "lucide-react";
 
 export default function App() {
@@ -20,6 +21,41 @@ export default function App() {
     "[GIT] Repositório sincronizado com a branch 'main'."
   ]);
   const [currentTimeStamp, setCurrentTimeStamp] = useState<string>("2026-06-18 04:19:06");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = () => {
+    const docEl = document.documentElement;
+    if (!document.fullscreenElement) {
+      docEl.requestFullscreen()
+        .then(() => {
+          setIsFullscreen(true);
+          addLog("[FULLSCREEN] Modo tela cheia ativado com sucesso.");
+        })
+        .catch((err) => {
+          console.warn("Erro ao ativar tela cheia de dentro do iframe:", err);
+          addLog("⚠️ [FULLSCREEN] O navegador bloqueou tela cheia direta do iframe. Dica: Clique no link externo de compartilhamento do app ou use o botão 'Open in new tab' para abrir a aplicação cheia!");
+        });
+    } else {
+      document.exitFullscreen()
+        .then(() => {
+          setIsFullscreen(false);
+          addLog("[FULLSCREEN] Modo tela cheia desativado.");
+        })
+        .catch((err) => {
+          console.error("Erro ao fechar tela cheia:", err);
+        });
+    }
+  };
+
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   // New View form state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -283,7 +319,21 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
+          <button
+            id="fullscreen-toggle-btn"
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700/40 rounded transition-all"
+            title={isFullscreen ? "Sair da Tela Cheia" : "Modo Tela Cheia"}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-3.5 h-3.5 text-indigo-400" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5 text-slate-400" />
+            )}
+            <span className="hidden xs:inline">{isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}</span>
+          </button>
+
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
             <span className="text-[10px] uppercase font-mono font-bold text-slate-300">Git repo: active</span>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DevelopmentGuideStep } from "../types";
+import type { DevelopmentGuideStep } from "../types";
 import { DEVELOPMENT_GUIDE_STEPS } from "../data";
 import { 
   Terminal, ShieldCheck, Cpu, Package, Settings, GitBranch, 

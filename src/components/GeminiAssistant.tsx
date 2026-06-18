@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SQLViewEntry } from "../types";
+import type { SQLViewEntry } from "../types";
 import { Sparkles, Brain, Code, FolderGit, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
 
 interface GeminiAssistantProps {
