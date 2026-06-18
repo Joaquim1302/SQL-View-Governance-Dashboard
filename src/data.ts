@@ -283,18 +283,24 @@ def run_deploy(config_db):
   {
     id: "step6",
     category: "final",
-    title: "6. Compilação para Windows (.exe)",
-    subtitle: "Distribuindo para uso Privado sem Python instalado",
-    description: "Você pode gerar um executável (.exe) de arquivo único do seu aplicativo para qualquer máquina Windows rodar com dois cliques, encapsulando o interpretador e a interface.",
+    title: "6. Compilação Perfeita para Windows (.exe)",
+    subtitle: "Resolvendo Dependências de Módulo no PyInstaller",
+    description: "Você pode gerar um executável (.exe) de arquivo único para o Windows. Como o aplicativo 'app.py' importa funções de 'create_presta_views.py' no mesmo diretório ('src/'), a compilação deve ser feita de dentro da pasta 'src/' ou adicionando a pasta ao caminho de busca do PyInstaller para evitar o erro 'ModuleNotFoundError: No module named create_presta_views'.",
     tips: [
-      "PyInstaller: O empacotador padrão da engenharia Python para Windows.",
-      "Comando de compilação sem console (GUI limpa): pyinstaller --noconsole --onefile src/app.py",
-      "Isolamento: Todos os drivers e imagens ficam embutidos no binário, facilitando a distribuição particular."
+      "Navegar até a pasta src: Entre no diretório 'src' antes de rodar o PyInstaller para que os imports relativos funcionem na compilação nativa de forma limpa.",
+      "Comando Prático: cd src && pyinstaller --noconsole --onefile app.py",
+      "Alternativa sem mudar de pasta: Se quiser rodar na pasta raiz do projeto, utilize o parâmetro `--paths`: pyinstaller --noconsole --onefile --paths=src src/app.py",
+      "Resultado: O app.exe compilado será gerado de forma autônoma na subpasta 'dist/' dentro de 'src/' (ou na raiz dependendo de onde o comando for executado) e já virá com toda a inteligência do validador empacotada!"
     ],
-    codeBlock: `pip install pyinstaller customtkinter pymysql
+    codeBlock: `:: Abra o seu Terminal de Comandos (CMD / PowerShell) na pasta do projeto e digite:
+pip install pyinstaller customtkinter pymysql
 
-# Gerar o arquivo compilado executável único (dist/app.exe)
-pyinstaller --noconsole --onefile src/app.py`,
+:: MÉTODO 1 (Recomendado - Entrando na pasta src):
+cd src
+pyinstaller --noconsole --onefile app.py
+
+:: MÉTODO 2 (Direto da raiz usando --paths):
+pyinstaller --noconsole --onefile --paths=src src/app.py`,
     codeLanguage: "bash"
   },
   {
@@ -302,13 +308,14 @@ pyinstaller --noconsole --onefile src/app.py`,
     category: "final",
     title: "7. Criar Atalho Fácil no Windows",
     subtitle: "Facilitando o Acesso Direto para o Usuário Particular",
-    description: "Para executar o aplicativo sem precisar abrir o terminal ou procurar a pasta de compilação dist/, você pode criar um Atalho nativo (.lnk) ou um arquivo em lote (.bat) que pode ficar em sua Área de Trabalho.",
+    description: "Para executar o aplicativo sem precisar abrir o terminal ou procurar a pasta de compilação, você pode criar um Atalho nativo (.lnk) ou um arquivo em lote (.bat) que pode ficar em sua Área de Trabalho.",
     tips: [
-      "Atalho de Área de Trabalho (.lnk): Clique com o botão direito na Área de Trabalho -> Novo -> Atalho, e aponte para o app.exe compilado.",
-      "Comando Direto / Script Bat: Um arquivo .bat que entra na pasta do Git, puxa as últimas views com 'git pull' e executa o aplicativo controlador na sequência.",
-      "Produtividade Particular: Permite inicializar e aplicar as views com apenas um duplo-clique de forma totalmente amigável."
+      "Localização do app.exe: Dependendo de onde rodou a compilação no Passo 6, o executável estará em 'dist/app.exe' (se rodou com --paths da raiz) ou em 'src/dist/app.exe' (se rodou 'cd src' antes).",
+      "Atalho (.lnk): Clique com o botão direito na Área de Trabalho -> Novo -> Atalho, e aponte para o app.exe compilado.",
+      "Comando Direto / Script Bat: Um arquivo .bat automatizado que entra na sua pasta de trabalho privada, sincroniza com o Git usando 'git pull' e executa o validador para implantar as views no banco.",
+      "Vantagem: Rapidez e segurança total no fluxo."
     ],
-    codeBlock: `:: Exemplo de arquivo "nexus_one_start.bat" para sua Área de Trabalho
+    codeBlock: `:: Exemplo de arquivo "nexus_one_start.bat" para colocar na sua Área de Trabalho:
 @echo off
 cd /d "C:\\caminho\\para\\seu\\nexus-view-manager"
 
@@ -316,6 +323,7 @@ echo [GIT] Sincronizando repositorio Git...
 git pull origin main
 
 echo [LAUNCH] Inicializando Gerenciador e executando views_manifest.json...
+:: Se rodou o PyInstaller de dentro da pasta 'src', mude para: "src\\dist\\app.exe"
 start "" "dist\\app.exe"
 
 exit`,
