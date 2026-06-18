@@ -11,9 +11,33 @@ import {
 
 export default function App() {
   // Application State
-  const [manifest, setManifest] = useState<SQLViewEntry[]>(INITIAL_MANIFEST);
-  const [sqlFiles, setSqlFiles] = useState<SqlFile[]>(INITIAL_SQL_FILES);
-  const [selectedViewName, setSelectedViewName] = useState<string>("cs_manufacturer_br");
+  const [manifest, setManifest] = useState<SQLViewEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem("nexus_manifest");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return INITIAL_MANIFEST;
+  });
+  const [sqlFiles, setSqlFiles] = useState<SqlFile[]>(() => {
+    try {
+      const saved = localStorage.getItem("nexus_sql_files");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return INITIAL_SQL_FILES;
+  });
+  const [selectedViewName, setSelectedViewName] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("nexus_selected_view");
+      if (saved) return saved;
+    } catch (e) {
+      console.error(e);
+    }
+    return "cs_manufacturer_br";
+  });
   const [executing, setExecuting] = useState(false);
   const [executionLogs, setExecutionLogs] = useState<string[]>([
     "[READY] Sistema operacional simulado iniciado.",
@@ -22,6 +46,31 @@ export default function App() {
   ]);
   const [currentTimeStamp, setCurrentTimeStamp] = useState<string>("2026-06-18 04:19:06");
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync state to localStorage when changed
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("nexus_manifest", JSON.stringify(manifest));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [manifest]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("nexus_sql_files", JSON.stringify(sqlFiles));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [sqlFiles]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("nexus_selected_view", selectedViewName);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedViewName]);
 
   const toggleFullscreen = () => {
     const docEl = document.documentElement;
@@ -304,6 +353,28 @@ export default function App() {
     setActiveWorkspaceTab("editor");
   };
 
+  const handleClearViews = () => {
+    setManifest([]);
+    setSqlFiles([]);
+    setSelectedViewName("");
+    setExecutionLogs([
+      "[SISTEMA] 🧹 Limpeza completa realizada com sucesso!",
+      "[MANIFESTO] views_manifest.json virtual agora está completamente vazio (0 views de teste no navegador).",
+      "[DICA] Use o botão 'Cadastrar Nova View' ou envie uma mensagem no chat da I.A. assistente para registrar as suas views reais!",
+      "[DICA EXTRA] Se precisar restaurar os exemplos padrão depois, basta clicar no botão 'Restaurar Exemplos' que aparecerá ao lado!"
+    ]);
+  };
+
+  const handleRestoreExamples = () => {
+    setManifest(INITIAL_MANIFEST);
+    setSqlFiles(INITIAL_SQL_FILES);
+    setSelectedViewName("cs_manufacturer_br");
+    setExecutionLogs([
+      "[SISTEMA] 🔄 Modelos e views de exemplo restauradas com sucesso!",
+      "[MANIFESTO]views_manifest.json carregou novamente os 5 exemplos de staging e view analítica padrão do Prestashop."
+    ]);
+  };
+
   return (
     <div className="w-full min-h-screen bg-[#0F172A] text-slate-300 font-sans flex flex-col justify-between select-none" id="app-root-container">
       
@@ -458,6 +529,28 @@ export default function App() {
 
             {/* Simulated Desktop Actions */}
             <div className="flex flex-wrap gap-2.5">
+              {manifest.length > 0 ? (
+                <button
+                  id="btn-clear-all-views"
+                  onClick={handleClearViews}
+                  className="bg-rose-950/40 hover:bg-rose-950/70 text-rose-300 hover:text-rose-200 px-3 py-2 rounded-lg text-xs font-semibold border border-rose-900/50 shadow-md transition-all flex items-center gap-1.5"
+                  title="Remover todas as views de teste atuais para cadastrar as reais"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  Limpar Exemplos
+                </button>
+              ) : (
+                <button
+                  id="btn-restore-example-views"
+                  onClick={handleRestoreExamples}
+                  className="bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 px-3 py-2 rounded-lg text-xs font-semibold border border-indigo-900/40 shadow-md transition-all flex items-center gap-1.5"
+                  title="Restaurar as views de teste do manifesto inicial"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
+                  Restaurar Exemplos
+                </button>
+              )}
+
               <button
                 id="btn-open-create-modal"
                 onClick={() => setIsModalOpen(true)}
@@ -469,9 +562,13 @@ export default function App() {
 
               <button
                 id="btn-deploy-active-views"
-                disabled={executing}
+                disabled={executing || manifest.length === 0}
                 onClick={handleDeploySimulator}
-                className="bg-[#6366F1] hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all flex items-center gap-2 uppercase tracking-wide"
+                className={`px-5 py-2 rounded-lg text-xs font-semibold shadow-lg transition-all flex items-center gap-2 uppercase tracking-wide ${
+                  manifest.length === 0 
+                  ? "bg-slate-800/50 text-slate-500 cursor-not-allowed border border-slate-800" 
+                  : "bg-[#6366F1] hover:bg-indigo-500 text-white shadow-indigo-600/20"
+                }`}
               >
                 {executing ? (
                   <>
