@@ -69,7 +69,7 @@ Respond ONLY in a JSON block matching this TypeScript type scheme:
 }`;
 
     const client = getGeminiClient();
-    const prompt = `Por favor, analise a seguinte view SQL para o banco de dados "${database || "prestashop"}":
+    const prompt = `Por favor, analise a seguinte view SQL para o banco de dados "${database || "nexus"}":
 Nome da View: ${viewName}
 SQL:
 ${sqlContent}`;
@@ -124,7 +124,7 @@ Based on the user's plain explanation of what data they want to query, decide:
    - "cs_" (Staging view)
    - "vw_" (Analytical view)
 2. A high-quality SQL view definition (MySQL / PostgreSQL format) with normalized translations if needed (e.g. Pt-Br).
-3. Database to associate (defaulting to "prestashop" or similar context).
+3. Database to associate (defaulting to "nexus" or similar context).
 4. Slogan/purpose description in pt-BR.
 
 Respond ONLY with JSON matching:
@@ -137,7 +137,7 @@ Respond ONLY with JSON matching:
 }`;
 
     const client = getGeminiClient();
-    const prompt = `Requisito do usuário: "${userPrompt}"\nContexto ou banco de dados preferido: "${dbContext || "prestashop"}"`;
+    const prompt = `Requisito do usuário: "${userPrompt}"\nContexto ou banco de dados preferido: "${dbContext || "nexus"}"`;
 
     const response = await client.models.generateContent({
       model: "gemini-3.5-flash",

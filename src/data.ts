@@ -3,40 +3,40 @@ import type { SQLViewEntry, SqlFile, DevelopmentGuideStep } from "./types";
 export const INITIAL_MANIFEST: SQLViewEntry[] = [
   {
     "view_name": "cs_manufacturer_br",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/cs_manufacturer_br.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/cs_manufacturer_br.sql",
     "owner": "fase_03",
-    "purpose": "Normalizar fabricantes do Prestashop em idioma pt-BR excluindo registros nulos",
+    "purpose": "Normalizar fabricantes do Nexus em idioma pt-BR excluindo registros nulos",
     "status": "active"
   },
   {
     "view_name": "cs_products_br",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/cs_products_br.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/cs_products_br.sql",
     "owner": "fase_03",
     "purpose": "Consolidar produtos com nomes em pt-BR e precos convertidos",
     "status": "active"
   },
   {
     "view_name": "cs_product_variants_br",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/cs_product_variants_br.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/cs_product_variants_br.sql",
     "owner": "analista_nexus",
     "purpose": "Staging de variacoes de produtos, atributos e estoque original",
     "status": "active"
   },
   {
     "view_name": "vw_inventory_current",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/vw_inventory_current.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/vw_inventory_current.sql",
     "owner": "gerencia",
     "purpose": "Relatorio consolidado de estoque atual para tomadores de decisao",
     "status": "active"
   },
   {
     "view_name": "tmp_test_view",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/tmp_test_view.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/tmp_test_view.sql",
     "owner": "estagiario",
     "purpose": "View temporaria para validacao de campos de auditoria (Forbidden)",
     "status": "inactive"
@@ -45,7 +45,7 @@ export const INITIAL_MANIFEST: SQLViewEntry[] = [
 
 export const INITIAL_SQL_FILES: SqlFile[] = [
   {
-    filePath: "sql/views/presta/cs_manufacturer_br.sql",
+    filePath: "sql/views/nexus/cs_manufacturer_br.sql",
     content: `-- normalizacao de fabricantes para idioma pt-BR
 SELECT 
     m.id_manufacturer AS id_fabricante,
@@ -58,7 +58,7 @@ INNER JOIN ps_manufacturer_lang ml ON (m.id_manufacturer = ml.id_manufacturer)
 WHERE m.active = 1;`
   },
   {
-    filePath: "sql/views/presta/cs_products_br.sql",
+    filePath: "sql/views/nexus/cs_products_br.sql",
     content: `-- consolidacao de produtos ativos em pt-BR
 SELECT 
     p.id_product AS id_produto,
@@ -71,7 +71,7 @@ INNER JOIN ps_product_lang pl ON (p.id_product = pl.id_product)
 WHERE pl.id_lang = 1 AND p.active = 1;`
   },
   {
-    filePath: "sql/views/presta/cs_product_variants_br.sql",
+    filePath: "sql/views/nexus/cs_product_variants_br.sql",
     content: `-- staging das combinacoes e variantes de produtos
 SELECT 
     pa.id_product_attribute AS id_variacao,
@@ -83,7 +83,19 @@ FROM ps_product_attribute pa
 LEFT JOIN ps_stock_available stock ON (pa.id_product_attribute = stock.id_product_attribute);`
   },
   {
-    filePath: "sql/views/presta/vw_inventory_current.sql",
+    filePath: "sql/views/nexus/cs_product_variants_br.sql",
+    content: `-- staging das combinacoes e variantes de produtos
+SELECT 
+    pa.id_product_attribute AS id_variacao,
+    pa.id_product AS id_produto,
+    pa.reference AS referencia_variacao,
+    pa.price AS acrescimo_preco,
+    stock.quantity AS quantidade_estoque
+FROM ps_product_attribute pa
+LEFT JOIN ps_stock_available stock ON (pa.id_product_attribute = stock.id_product_attribute);`
+  },
+  {
+    filePath: "sql/views/nexus/vw_inventory_current.sql",
     content: `-- Relatorio analitico de estoque por fabricante para diretoria
 SELECT 
     m.nome AS fabricante,
@@ -97,7 +109,7 @@ GROUP BY m.nome, p.nome_produto
 ORDER BY valor_total_estoque DESC;`
   },
   {
-    filePath: "sql/views/presta/tmp_test_view.sql",
+    filePath: "sql/views/nexus/tmp_test_view.sql",
     content: `-- View temporaria (violacao de regras de governanca)
 SELECT * FROM ps_connections WHERE date_add > NOW() - INTERVAL 1 DAY;`
   }
@@ -113,10 +125,10 @@ export const DEVELOPMENT_GUIDE_STEPS: DevelopmentGuideStep[] = [
     tips: [
       "Python 3.11+: Manipulação nativa de JSON, caminhos cruzados de arquivos mais eficientes.",
       "C# (.NET 8): Alternativa caso sua equipe trabalhe 100% no ecossistema Microsoft Windows.",
-      "Vantagem do Python: O script de deploy das views (create_presta_views.py) pode ser o próprio core-engine executado no Terminal ou por baixo da tela visual."
+      "Vantagem do Python: O script de deploy das views (create_nexus_views.py) pode ser o próprio core-engine executado no Terminal ou por baixo da tela visual."
     ],
     codeBlock: `dependencies = [
-    "pymysql",       # Driver leve para conectar no MySQL/MariaDB do Prestashop
+    "pymysql",       # Driver leve para conectar no MySQL/MariaDB do Nexus
     "cryptography",  # Necessário para conexões seguras modernos
     "colorama"       # Logs coloridos no console do Windows
 ]`,
@@ -144,7 +156,7 @@ nexus-view-manager/
 │   └── database.py       # Gerenciador de conexão de banco de dados
 └── sql/
     └── views/
-        └── presta/
+        └── nexus/
             ├── cs_manufacturer_br.sql
             └── cs_products_br.sql`,
     codeLanguage: "bash"
@@ -196,10 +208,10 @@ class App(ctk.CTk):
     codeBlock: `[
   {
     "view_name": "cs_manufacturer_br",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/cs_manufacturer_br.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/cs_manufacturer_br.sql",
     "owner": "fase_03",
-    "purpose": "Normalizar fabricantes do Prestashop em pt-BR",
+    "purpose": "Normalizar fabricantes do Nexus em pt-BR",
     "status": "active"
   }
 ]`,
@@ -209,7 +221,7 @@ class App(ctk.CTk):
     id: "step5",
     category: "git",
     title: "5. O Script Organizador (Backbone)",
-    subtitle: "create_presta_views.py",
+    subtitle: "create_nexus_views.py",
     description: "O código responsável por traduzir suas regras de governança para o servidor de banco de dados. Ele valida o padrão de nomes antes de enviar qualquer comando SQL CREATE ao banco.",
     tips: [
       "Validação regex: Garante que os nomes de views possuam prefixos 'cs_' ou 'vw_'.",
@@ -285,7 +297,7 @@ def run_deploy(config_db):
     category: "final",
     title: "6. Compilação Perfeita para Windows (.exe)",
     subtitle: "Resolvendo Dependências de Módulo no PyInstaller",
-    description: "Você pode gerar um executável (.exe) de arquivo único para o Windows. Como o aplicativo 'app.py' importa funções de 'create_presta_views.py' no mesmo diretório ('src/'), a compilação deve ser feita de dentro da pasta 'src/' ou adicionando a pasta ao caminho de busca do PyInstaller para evitar o erro 'ModuleNotFoundError: No module named create_presta_views'.",
+    description: "Você pode gerar um executável (.exe) de arquivo único para o Windows. Como o aplicativo 'app.py' importa funções de 'create_nexus_views.py' no mesmo diretório ('src/'), a compilação deve ser feita de dentro da pasta 'src/' ou adicionando a pasta ao caminho de busca do PyInstaller para evitar o erro 'ModuleNotFoundError: No module named create_nexus_views'.",
     tips: [
       "Navegar até a pasta src: Entre no diretório 'src' antes de rodar o PyInstaller para que os imports relativos funcionem na compilação nativa de forma limpa.",
       "Comando Prático: cd src && pyinstaller --noconsole --onefile app.py",

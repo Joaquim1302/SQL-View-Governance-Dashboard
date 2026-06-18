@@ -109,7 +109,7 @@ export default function App() {
   // New View form state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formName, setFormName] = useState("");
-  const [formDatabase, setFormDatabase] = useState("prestashop");
+  const [formDatabase, setFormDatabase] = useState("nexus");
   const [formPurpose, setFormPurpose] = useState("");
   const [formOwner, setFormOwner] = useState("nexus_user");
   const [formSql, setFormSql] = useState("");
@@ -147,7 +147,7 @@ export default function App() {
     setExecutionLogs(prev => [...prev, msg]);
   };
 
-  // Handle Simulated Deployment of Presta Views
+  // Handle Simulated Deployment of Nexus Views
   const handleDeploySimulator = () => {
     setExecuting(true);
     setExecutionLogs([]);
@@ -155,7 +155,7 @@ export default function App() {
     // Smooth timing delay simulation
     setTimeout(() => {
       const logs: string[] = [];
-      logs.push("🚀 [START] Iniciando a execução de create_presta_views.py...");
+      logs.push("🚀 [START] Iniciando a execução de create_nexus_views.py...");
       logs.push("📂 [STEP 1] Lendo arquivo de manifesto: 'sql/views/views_manifest.json'...");
       logs.push(`🔍 [STEP 2] Encontrado(s) ${manifest.length} registro(s) de views cadastrados.`);
       
@@ -232,7 +232,7 @@ export default function App() {
     const cleanName = formName.trim().toLowerCase();
     
     // Predefined file folder pattern
-    const sqlFilePath = `sql/views/presta/${cleanName}.sql`;
+    const sqlFilePath = `sql/views/nexus/${cleanName}.sql`;
 
     // Add new file
     const newSqlFile: SqlFile = {
@@ -324,7 +324,7 @@ export default function App() {
   // Callback from AI Assistant to insert newly generated code
   const handleApplyGeneratedSql = (name: string, sql: string, purpose: string, database: string) => {
     const cleanName = name.trim().toLowerCase();
-    const filePath = `sql/views/presta/${cleanName}.sql`;
+    const filePath = `sql/views/nexus/${cleanName}.sql`;
 
     // check if it exists in manifest
     const exists = manifest.some(v => v.view_name === cleanName);
@@ -371,7 +371,7 @@ export default function App() {
     setSelectedViewName("cs_manufacturer_br");
     setExecutionLogs([
       "[SISTEMA] 🔄 Modelos e views de exemplo restauradas com sucesso!",
-      "[MANIFESTO]views_manifest.json carregou novamente os 5 exemplos de staging e view analítica padrão do Prestashop."
+      "[MANIFESTO]views_manifest.json carregou novamente os 5 exemplos de staging e view analítica padrão do Nexus."
     ]);
   };
 
@@ -441,7 +441,7 @@ export default function App() {
             
             <div className="mt-2.5 space-y-1">
               <div className="flex items-center gap-2 px-2 py-1.5 text-slate-400 bg-slate-900/40 rounded border border-slate-800/60 font-mono text-xs">
-                <span>📁 presta/</span>
+                <span>📁 nexus/</span>
               </div>
 
               {manifest.map((item) => {
@@ -786,7 +786,7 @@ export default function App() {
               <GeminiAssistant
                 currentSQL={activeSqlFile?.content || ""}
                 currentName={activeView?.view_name || ""}
-                currentDatabase={activeView?.database || "prestashop"}
+                currentDatabase={activeView?.database || "nexus"}
                 onApplySQL={handleApplyGeneratedSql}
               />
             </div>
@@ -804,7 +804,7 @@ export default function App() {
               <div className="flex items-center space-x-2">
                 <Terminal className="w-3.5 h-3.5 text-indigo-400" />
                 <span className="font-mono text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Terminal de Implantação - create_presta_views.py
+                  Terminal de Implantação - create_nexus_views.py
                 </span>
               </div>
               <span className="text-[10px] font-mono text-slate-500">Última Execução: {currentTimeStamp}</span>
@@ -906,7 +906,7 @@ export default function App() {
                     onChange={(e) => setFormDatabase(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-850 rounded p-2 text-slate-300 focus:outline-none focus:border-indigo-500"
                   >
-                    <option value="prestashop">prestashop</option>
+                    <option value="nexus">nexus</option>
                     <option value="nexus_sales">nexus_sales</option>
                     <option value="magento">magento</option>
                   </select>

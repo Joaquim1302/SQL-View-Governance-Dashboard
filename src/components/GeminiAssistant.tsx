@@ -25,7 +25,7 @@ export default function GeminiAssistant({
 
   // Generate state
   const [generatePrompt, setGeneratePrompt] = useState("");
-  const [dbPrefer, setDbPrefer] = useState("prestashop");
+  const [dbPrefer, setDbPrefer] = useState("nexus");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<any | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -301,7 +301,7 @@ export default function GeminiAssistant({
                 onChange={(e) => setDbPrefer(e.target.value)}
                 className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 text-slate-300 focus:outline-none focus:border-indigo-500"
               >
-                <option value="prestashop">prestashop</option>
+                <option value="nexus">nexus</option>
                 <option value="nexus_sales">nexus_sales</option>
                 <option value="magento">magento</option>
               </select>

@@ -1,40 +1,40 @@
 [
   {
     "view_name": "cs_manufacturer_br",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/cs_manufacturer_br.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/cs_manufacturer_br.sql",
     "owner": "fase_03",
-    "purpose": "Normalizar fabricantes do Prestashop em idioma pt-BR excluindo registros nulos",
+    "purpose": "Normalizar fabricantes do Nexus em idioma pt-BR excluindo registros nulos",
     "status": "active"
   },
   {
     "view_name": "cs_products_br",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/cs_products_br.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/cs_products_br.sql",
     "owner": "fase_03",
     "purpose": "Consolidar produtos com nomes em pt-BR e precos convertidos",
     "status": "active"
   },
   {
     "view_name": "cs_product_variants_br",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/cs_product_variants_br.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/cs_product_variants_br.sql",
     "owner": "analista_nexus",
     "purpose": "Staging de variacoes de produtos, atributos e estoque original",
     "status": "active"
   },
   {
     "view_name": "vw_inventory_current",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/vw_inventory_current.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/vw_inventory_current.sql",
     "owner": "gerencia",
     "purpose": "Relatorio consolidado de estoque atual para tomadores de decisao",
     "status": "active"
   },
   {
     "view_name": "tmp_test_view",
-    "database": "prestashop",
-    "sql_file": "sql/views/presta/tmp_test_view.sql",
+    "database": "nexus",
+    "sql_file": "sql/views/nexus/tmp_test_view.sql",
     "owner": "estagiario",
     "purpose": "View temporaria para validacao de campos de auditoria (Forbidden)",
     "status": "inactive"

@@ -1,7 +1,7 @@
 import os
 import json
 import customtkinter as ctk
-from create_presta_views import validate_view_name, run_presta_views_deploy
+from create_nexus_views import validate_view_name, run_nexus_views_deploy
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -147,19 +147,19 @@ class NexusOneApp(ctk.CTk):
             default_manifest = [
                 {
                     "view_name": "cs_manufacturer_br",
-                    "database": "prestashop",
-                    "sql_file": "sql/views/presta/cs_manufacturer_br.sql",
+                    "database": "nexus",
+                    "sql_file": "sql/views/nexus/cs_manufacturer_br.sql",
                     "owner": "fase_03",
-                    "purpose": "Normalizar fabricantes do Prestashop em pt-BR",
+                    "purpose": "Normalizar fabricantes do Nexus em pt-BR",
                     "status": "active"
                 }
             ]
-            os.makedirs("sql/views/presta", exist_ok=True)
+            os.makedirs("sql/views/nexus", exist_ok=True)
             with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump(default_manifest, f, indent=2, ensure_ascii=False)
             
             # Cria a SQL inicial de exemplo
-            sql_file = "sql/views/presta/cs_manufacturer_br.sql"
+            sql_file = "sql/views/nexus/cs_manufacturer_br.sql"
             if not os.path.exists(sql_file):
                 with open(sql_file, "w", encoding="utf-8") as sf:
                     sf.write("SELECT id_manufacturer, name FROM ps_manufacturer WHERE active = 1;")
@@ -212,9 +212,9 @@ class NexusOneApp(ctk.CTk):
             "charset": "utf8mb4"
         }
         
-        # Chama a engine real importada de create_presta_views.py passando os logs para o nosso aplicativo desktop
+        # Chama a engine real importada de create_nexus_views.py passando os logs para o nosso aplicativo desktop
         try:
-            run_presta_views_deploy(db_config, log_callback=self.add_log)
+            run_nexus_views_deploy(db_config, log_callback=self.add_log)
         except Exception as e:
             self.add_log(f"❌ [ERRO CRÍTICO] Falha catastrófica ao tentar executar o deployer: {e}")
 
