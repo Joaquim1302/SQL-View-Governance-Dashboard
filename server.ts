@@ -173,7 +173,7 @@ Respond ONLY with JSON matching:
 
 // Route 3: Physical Save/Deploy of Manifest and SQL files in custom directory
 app.post("/api/manifest/deploy", (req, res) => {
-  const { manifestDir, manifest, sqlFiles } = req.body;
+  const { manifestDir, sqlFilesDir, manifest, sqlFiles } = req.body;
   if (!manifestDir) {
     return res.status(400).json({ error: "O parâmetro manifestDir é obrigatório." });
   }
@@ -189,11 +189,25 @@ app.post("/api/manifest/deploy", (req, res) => {
       }
     }
 
+    let cleanSqlDir = sqlFilesDir || manifestDir;
+    if (!cleanSqlDir.endsWith("/") && !cleanSqlDir.endsWith("\\")) {
+      if (cleanSqlDir.includes("\\") || /^[A-Za-z]:/.test(cleanSqlDir)) {
+        cleanSqlDir += "\\";
+      } else {
+        cleanSqlDir += "/";
+      }
+    }
+
     console.log(`[MANIFEST DEPLOY] Gravando manifesto físico em: ${cleanDir}`);
+    console.log(`[MANIFEST DEPLOY] Gravando arquivos SQL em: ${cleanSqlDir}`);
 
     // Create the directory recursively if it doesn't exist
     if (!fs.existsSync(cleanDir)) {
       fs.mkdirSync(cleanDir, { recursive: true });
+    }
+
+    if (!fs.existsSync(cleanSqlDir)) {
+      fs.mkdirSync(cleanSqlDir, { recursive: true });
     }
 
     // Save views_manifest.json
@@ -207,7 +221,7 @@ app.post("/api/manifest/deploy", (req, res) => {
         if (!file.filePath) continue;
         
         // Ensure directories for individual SQL files exist too
-        const fullSqlPath = path.join(cleanDir, file.filePath);
+        const fullSqlPath = path.join(cleanSqlDir, file.filePath);
         const sqlDir = path.dirname(fullSqlPath);
         
         if (!fs.existsSync(sqlDir)) {
@@ -236,7 +250,7 @@ app.post("/api/manifest/deploy", (req, res) => {
 
 // Route 4: Physical Loading of Manifest and SQL files from custom directory
 app.post("/api/manifest/load", (req, res) => {
-  const { manifestDir } = req.body;
+  const { manifestDir, sqlFilesDir } = req.body;
   if (!manifestDir) {
     return res.status(400).json({ error: "O parâmetro manifestDir é obrigatório." });
   }
@@ -248,6 +262,15 @@ app.post("/api/manifest/load", (req, res) => {
         cleanDir += "\\";
       } else {
         cleanDir += "/";
+      }
+    }
+
+    let cleanSqlDir = sqlFilesDir || manifestDir;
+    if (!cleanSqlDir.endsWith("/") && !cleanSqlDir.endsWith("\\")) {
+      if (cleanSqlDir.includes("\\") || /^[A-Za-z]:/.test(cleanSqlDir)) {
+        cleanSqlDir += "\\";
+      } else {
+        cleanSqlDir += "/";
       }
     }
 
@@ -267,7 +290,7 @@ app.post("/api/manifest/load", (req, res) => {
     if (Array.isArray(manifestData)) {
       for (const item of manifestData) {
         if (item.sql_file) {
-          const fullSqlPath = path.join(cleanDir, item.sql_file);
+          const fullSqlPath = path.join(cleanSqlDir, item.sql_file);
           if (fs.existsSync(fullSqlPath)) {
             const sqlContent = fs.readFileSync(fullSqlPath, "utf-8");
             sqlFilesList.push({

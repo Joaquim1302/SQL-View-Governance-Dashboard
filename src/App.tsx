@@ -9,6 +9,10 @@ import {
   Maximize2, Minimize2
 } from "lucide-react";
 
+// Centralized default directories for Joaquim
+const PATH_D_JOAQUIM = "E:\\Nexus_One\\FASE_3_ Banco_Corporativo\\python\\db";
+const PATH_E_JOAQUIM = "E:\\Nexus_One\\FASE_3_ Banco_Corporativo\\python\\sql";
+
 export default function App() {
   // Application State
   const [manifest, setManifest] = useState<SQLViewEntry[]>(() => {
@@ -118,21 +122,23 @@ export default function App() {
 
   // Configuration Modal state
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-  const [manifestDir, setManifestDir] = useState("D:\\Users\\Joaquim\\");
-  const [tempManifestDir, setTempManifestDir] = useState("D:\\Users\\Joaquim\\");
+  const [manifestDir, setManifestDir] = useState(PATH_D_JOAQUIM);
+  const [tempManifestDir, setTempManifestDir] = useState(PATH_D_JOAQUIM);
+  const [sqlFilesDir, setSqlFilesDir] = useState(PATH_D_JOAQUIM);
+  const [tempSqlFilesDir, setTempSqlFilesDir] = useState(PATH_D_JOAQUIM);
 
   // Local Physical file storage state helpers
   const [loadingPhysical, setLoadingPhysical] = useState(false);
   const [loadError, setLoadError] = useState("");
 
-  const handleLoadPhysicalManifest = async (dirToLoad: string) => {
+  const handleLoadPhysicalManifest = async (dirToLoad: string, sqlDirToLoad: string) => {
     setLoadingPhysical(true);
     setLoadError("");
     try {
       const response = await fetch("/api/manifest/load", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ manifestDir: dirToLoad })
+        body: JSON.stringify({ manifestDir: dirToLoad, sqlFilesDir: sqlDirToLoad })
       });
       const data = await response.json();
       if (response.ok && data.success) {
@@ -154,6 +160,7 @@ export default function App() {
           }
           
           setManifestDir(dirToLoad);
+          setSqlFilesDir(sqlDirToLoad);
           
           // Log success to virtual terminal
           setExecutionLogs(prev => [
@@ -204,6 +211,95 @@ export default function App() {
     return { valid: true, reason: "" };
   };
 
+  // Verify dependencies between SQLs in the manifest
+  const getViewDependencies = (item: SQLViewEntry) => {
+    const file = sqlFiles.find(f => f.filePath === item.sql_file);
+    const content = file?.content || "";
+    const dependsOn: string[] = [];
+    const requiredBy: string[] = [];
+
+    const escapeRegExp = (str: string) => {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    // Check which other registered views the current view depends on (references in its SQL)
+    manifest.forEach(other => {
+      if (other.view_name === item.view_name) return;
+      const regex = new RegExp(`\\b${escapeRegExp(other.view_name)}\\b`, 'i');
+      if (regex.test(content)) {
+        dependsOn.push(other.view_name);
+      }
+    });
+
+    // Check which other registered views depend on the current view (references current view in their SQL)
+    manifest.forEach(other => {
+      if (other.view_name === item.view_name) return;
+      const otherFile = sqlFiles.find(f => f.filePath === other.sql_file);
+      const otherContent = otherFile?.content || "";
+      const regex = new RegExp(`\\b${escapeRegExp(item.view_name)}\\b`, 'i');
+      if (regex.test(otherContent)) {
+        requiredBy.push(other.view_name);
+      }
+    });
+
+    return { dependsOn, requiredBy };
+  };
+
+  // Sort manifest by dependencies so views that are dependencies are built first,
+  // and views that depend on them are saved/listed last in views_manifest.json.
+  const sortManifestByDependencies = (items: SQLViewEntry[]): SQLViewEntry[] => {
+    const sorted: SQLViewEntry[] = [];
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+
+    const escapeRegExp = (str: string) => {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    const getDeps = (item: SQLViewEntry): string[] => {
+      const file = sqlFiles.find(f => f.filePath === item.sql_file);
+      const content = file?.content || "";
+      const deps: string[] = [];
+      items.forEach(other => {
+        if (other.view_name === item.view_name) return;
+        const regex = new RegExp(`\\b${escapeRegExp(other.view_name)}\\b`, 'i');
+        if (regex.test(content)) {
+          deps.push(other.view_name);
+        }
+      });
+      return deps;
+    };
+
+    const visit = (item: SQLViewEntry) => {
+      if (visited.has(item.view_name)) return;
+      if (visiting.has(item.view_name)) {
+        // Recycle dependency or circular chain detected, skip to avoid infinite recursion
+        return;
+      }
+
+      visiting.add(item.view_name);
+
+      // Visit all dependencies first (so they are placed before this view in the sorted array)
+      const deps = getDeps(item);
+      deps.forEach(depName => {
+        const depItem = items.find(i => i.view_name === depName);
+        if (depItem) {
+          visit(depItem);
+        }
+      });
+
+      visiting.delete(item.view_name);
+      visited.add(item.view_name);
+      sorted.push(item);
+    };
+
+    items.forEach(item => {
+      visit(item);
+    });
+
+    return sorted;
+  };
+
   // Add clean formatted log helper
   const addLog = (msg: string) => {
     setExecutionLogs(prev => [...prev, msg]);
@@ -217,18 +313,28 @@ export default function App() {
     const logs: string[] = [];
     logs.push("🚀 [START] Iniciando a gravação física e simulação de deploy...");
     
+    // Sort manifest by dependencies so views that have dependencies are saved LAST in views_manifest.json
+    const orderedManifest = sortManifestByDependencies(manifest);
+    setManifest(orderedManifest);
+
     const cleanDir = (manifestDir.endsWith("/") || manifestDir.endsWith("\\")) 
       ? manifestDir 
       : (manifestDir.includes("\\") || /^[A-Za-z]:/.test(manifestDir) ? manifestDir + "\\" : manifestDir + "/");
+
+    const cleanSqlDir = (sqlFilesDir.endsWith("/") || sqlFilesDir.endsWith("\\")) 
+      ? sqlFilesDir 
+      : (sqlFilesDir.includes("\\") || /^[A-Za-z]:/.test(sqlFilesDir) ? sqlFilesDir + "\\" : sqlFilesDir + "/");
     
     logs.push(`📂 [STEP 1] Gravando manifesto físico em: '${cleanDir}views_manifest.json'...`);
-    logs.push(`🔍 [STEP 2] Encontrado(s) ${manifest.length} registro(s) de views cadastrados.`);
+    logs.push(`📂 [STEP 1] Gravando scripts SQL em: '${cleanSqlDir}'...`);
+    logs.push(`🔄 [STEP 1.5] Ordenando views_manifest por hierarquia de dependência para evitar falhas consecutivas de compilação...`);
+    logs.push(`🔍 [STEP 2] Encontrado(s) ${orderedManifest.length} registro(s) de views cadastrados na ordem ideal de criação.`);
     
     let successCount = 0;
     let rejectCount = 0;
     let skipCount = 0;
 
-    manifest.forEach((item) => {
+    orderedManifest.forEach((item) => {
       logs.push(`----------------------------------------`);
       logs.push(`⚙️ Processando View: "${item.view_name}" no banco "${item.database}"`);
 
@@ -272,7 +378,8 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           manifestDir,
-          manifest,
+          sqlFilesDir,
+          manifest: orderedManifest,
           sqlFiles
         })
       });
@@ -283,7 +390,7 @@ export default function App() {
         logs.push(`✅ [GRAVAÇÃO FÍSICA SUCESSO] Gravado fisicamente '${cleanDir}views_manifest.json'`);
         logs.push(`📂 [GRAVAÇÃO FÍSICA SUCESSO] Gravados ${data.writtenFiles?.length || 0} arquivos SQL relacionados sob demanda.`);
         data.writtenFiles?.forEach((filePath: string) => {
-          logs.push(`   📄 -> ${cleanDir}${filePath}`);
+          logs.push(`   📄 -> ${cleanSqlDir}${filePath}`);
         });
       } else {
         logs.push(`⚠️ [GRAVAÇÃO FÍSICA REJEITADA] ${data.error || "Erro ao salvar localmente."}`);
@@ -551,8 +658,13 @@ export default function App() {
       {/* 1. Header Bar styled like a Premium OS/IDE Native TitleBar */}
       <div className="h-11 bg-[#1E293B] flex items-center justify-between px-4 border-b border-slate-800" id="desktop-app-header">
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 bg-indigo-600 rounded flex items-center justify-center shadow-lg">
-            <span className="text-[10px] text-white font-extrabold">N1</span>
+          <div className="w-5 h-5 rounded overflow-hidden flex items-center justify-center shadow-lg bg-indigo-950 border border-indigo-500/30">
+            <img 
+              src="/src/assets/images/favicon_1781991710076.jpg" 
+              alt="N1 Logo" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
           </div>
           <div className="flex flex-col">
             <span className="text-xs font-semibold tracking-wider text-slate-100 uppercase font-mono">Nexus One™ Controller</span>
@@ -560,50 +672,55 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-6">
-          <button
-            id="fullscreen-toggle-btn"
-            onClick={toggleFullscreen}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700/40 rounded transition-all"
-            title={isFullscreen ? "Sair da Tela Cheia" : "Modo Tela Cheia"}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-3.5 h-3.5 text-indigo-400" />
-            ) : (
-              <Maximize2 className="w-3.5 h-3.5 text-slate-400" />
-            )}
-            <span className="hidden xs:inline">{isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}</span>
-          </button>
-
+        <div className="flex items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
             <span className="text-[10px] uppercase font-mono font-bold text-slate-300">Git repo: active</span>
           </div>
-          <div className="hidden sm:flex items-center gap-4 ml-2 border-l border-slate-700/60 pl-4">
-            <button 
-              id="header-btn-gui-guide"
-              onClick={() => {
-                setActiveWorkspaceTab("guide");
-                document.getElementById("guide-section")?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 transition-all"
+          <div className="flex items-center gap-3 ml-1 sm:ml-2 border-l border-slate-700/60 pl-3 sm:pl-4">
+            <div className="hidden sm:flex items-center gap-4">
+              <button 
+                id="header-btn-gui-guide"
+                onClick={() => {
+                  setActiveWorkspaceTab("guide");
+                  document.getElementById("guide-section")?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 transition-all"
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>Ver Roteiro Windows</span>
+              </button>
+              <span className="text-slate-600">|</span>
+              <span className="text-[10.5px] font-mono text-slate-400">v1.0.4</span>
+              <span className="text-slate-600">|</span>
+            </div>
+            
+            <button
+              id="fullscreen-toggle-btn"
+              onClick={toggleFullscreen}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700/40 rounded transition-all"
+              title={isFullscreen ? "Sair da Tela Cheia" : "Modo Tela Cheia"}
             >
-              <Cpu className="w-3.5 h-3.5" />
-              <span>Ver Roteiro Windows</span>
+              {isFullscreen ? (
+                <Minimize2 className="w-3.5 h-3.5 text-indigo-400" />
+              ) : (
+                <Maximize2 className="w-3.5 h-3.5 text-slate-400" />
+              )}
+              <span className="hidden xs:inline">{isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}</span>
             </button>
-            <span className="text-slate-600">|</span>
-            <span className="text-[10.5px] font-mono text-slate-400">v1.0.4</span>
-            <span className="text-slate-600">|</span>
+
             <button
               id="header-btn-config-manifest"
               onClick={() => {
                 setTempManifestDir(manifestDir);
+                setTempSqlFilesDir(sqlFilesDir);
                 setIsConfigModalOpen(true);
               }}
-              className="text-slate-400 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-slate-800/40 transition-all flex items-center justify-center"
-              title="Configurar diretório do manifesto (views_manifest.json)"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700/40 rounded transition-all"
+              title="Configurações"
             >
-              <Settings className="w-3.5 h-3.5" />
+              <Settings className="w-3.5 h-3.5 text-slate-400" />
+              <span className="hidden xs:inline">Configurações</span>
             </button>
           </div>
         </div>
@@ -711,27 +828,6 @@ export default function App() {
 
             {/* Simulated Desktop Actions */}
             <div className="flex flex-wrap gap-2.5">
-              {manifest.length > 0 ? (
-                <button
-                  id="btn-clear-all-views"
-                  onClick={handleClearViews}
-                  className="bg-rose-950/40 hover:bg-rose-950/70 text-rose-300 hover:text-rose-200 px-3 py-2 rounded-lg text-xs font-semibold border border-rose-900/50 shadow-md transition-all flex items-center gap-1.5"
-                  title="Remover todas as views de teste atuais para cadastrar as reais"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                  Limpar Exemplos
-                </button>
-              ) : (
-                <button
-                  id="btn-restore-example-views"
-                  onClick={handleRestoreExamples}
-                  className="bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 px-3 py-2 rounded-lg text-xs font-semibold border border-indigo-900/40 shadow-md transition-all flex items-center gap-1.5"
-                  title="Restaurar as views de teste do manifesto inicial"
-                >
-                  <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
-                  Restaurar Exemplos
-                </button>
-              )}
 
               <button
                 id="btn-open-create-modal"
@@ -904,6 +1000,33 @@ export default function App() {
 
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1">
                             <span>DB: {item.database}</span>
+                             {(() => {
+                               const deps = getViewDependencies(item);
+                               const hasDeps = deps.dependsOn.length > 0 || deps.requiredBy.length > 0;
+                               if (hasDeps) {
+                                 const tooltipParts: string[] = [];
+                                 if (deps.dependsOn.length > 0) {
+                                   tooltipParts.push(`Depende de:\n- ${deps.dependsOn.join("\n- ")}`);
+                                 }
+                                 if (deps.requiredBy.length > 0) {
+                                   tooltipParts.push(`Usado por:\n- ${deps.requiredBy.join("\n- ")}`);
+                                 }
+                                 const tooltipText = tooltipParts.join("\n\n");
+                                 return (
+                                   <span 
+                                     className={deps.requiredBy.length > 0
+                                       ? "text-emerald-400 font-sans font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 text-[9px] flex items-center gap-1 cursor-help uppercase"
+                                       : "text-orange-400 font-sans font-bold bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20 text-[9px] flex items-center gap-1 cursor-help uppercase"
+                                     }
+                                     title={tooltipText}
+                                   >
+                                     <Layers className="w-2.5 h-2.5" />
+                                     Link: {deps.dependsOn.length + deps.requiredBy.length}
+                                   </span>
+                                 );
+                               }
+                               return null;
+                             })()}
                             <span>Dono: {item.owner}</span>
                           </div>
 
@@ -1193,7 +1316,7 @@ export default function App() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-sm font-semibold text-slate-100 flex items-center space-x-2">
                 <Settings className="w-4 h-4 text-indigo-400" />
-                <span>Configurar Diretório do Manifesto</span>
+                <span>Configurações</span>
               </h3>
               <button 
                 id="btn-close-config-modal"
@@ -1206,68 +1329,123 @@ export default function App() {
 
             <div className="space-y-3.5 text-xs">
               <p className="text-slate-400 leading-relaxed font-sans font-medium">
-                Defina o diretório onde o arquivo <code className="text-indigo-300 font-bold font-mono">views_manifest.json</code> é lido e gravado por este aplicativo e pelo script Python.
+                Defina o diretório onde o arquivo <code className="text-indigo-300 font-bold font-mono">views_manifest.json</code> e os scripts individuais <code className="text-indigo-300 font-bold font-mono">.sql</code> serão lidos e gravados.
               </p>
 
-              <div className="space-y-1">
-                <label className="block font-semibold text-slate-300">Diretório de Gravação:</label>
-                <div className="flex gap-2">
-                  <input
-                    id="config-input-dir"
-                    type="text"
-                    required
-                    placeholder="./"
-                    value={tempManifestDir}
-                    onChange={(e) => setTempManifestDir(e.target.value)}
-                    className="flex-1 bg-slate-950 border border-slate-850 rounded p-2 text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
-                  />
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <label className="block font-semibold text-slate-300">Diretório do Manifesto (views_manifest.json):</label>
+                  <div className="flex gap-2">
+                    <input
+                      id="config-input-dir"
+                      type="text"
+                      required
+                      placeholder="./"
+                      value={tempManifestDir}
+                      onChange={(e) => setTempManifestDir(e.target.value)}
+                      className="flex-1 bg-slate-950 border border-slate-850 rounded p-2 text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 block italic mt-0.5 font-sans">
+                    Diretório base onde se localiza o arquivo views_manifest.json
+                  </span>
                 </div>
-                <span className="text-[10px] text-slate-500 block italic mt-1 font-sans">
-                  Exemplos: <code className="text-slate-400 NOT-italic">./</code>, <code className="text-slate-400 NOT-italic">sql/views/</code>, <code className="text-slate-400 NOT-italic">src/</code>
-                </span>
+
+                <div className="space-y-1">
+                  <label className="block font-semibold text-slate-300">Diretório dos Scripts SQL (.sql):</label>
+                  <div className="flex gap-2">
+                    <input
+                      id="config-input-sql-dir"
+                      type="text"
+                      required
+                      placeholder="./"
+                      value={tempSqlFilesDir}
+                      onChange={(e) => setTempSqlFilesDir(e.target.value)}
+                      className="flex-1 bg-slate-950 border border-slate-850 rounded p-2 text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 block italic mt-0.5 font-sans">
+                    Diretório onde os scripts em formato .sql serão salvos e gerados
+                  </span>
+                </div>
               </div>
 
               {/* Quick Directory Presets to make it look even more professional */}
-              <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-sans">Atalhos de Diretório:</span>
+              <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-sans">Configurações Rápidas de Diretório:</span>
                 <div className="flex flex-wrap gap-1.5 font-mono">
+                  {/* 
                   <button
                     type="button"
-                    onClick={() => setTempManifestDir("./")}
+                    onClick={() => {
+                      setTempManifestDir("./");
+                      setTempSqlFilesDir("./");
+                    }}
                     className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono"
+                    title="Configura a pasta raiz para ambos os diretórios"
                   >
                     Raiz (./)
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTempManifestDir("sql/views/")}
+                    onClick={() => {
+                      setTempManifestDir("sql/views/");
+                      setTempSqlFilesDir("sql/views/");
+                    }}
                     className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono"
+                    title="Configura ambos para a subpasta sql/views/"
                   >
                     sql/views/
                   </button>
+                  */}
                   <button
                     type="button"
-                    onClick={() => setTempManifestDir("src/")}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono"
+                    onClick={() => {
+                      setTempManifestDir(PATH_D_JOAQUIM);
+                      setTempSqlFilesDir(PATH_D_JOAQUIM);
+                    }}
+                    className="bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-900 text-indigo-300 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono font-semibold"
+                    title={`Define ambos para o caminho local padrão: ${PATH_D_JOAQUIM}`}
                   >
-                    src/
+                    Unificar em: {PATH_D_JOAQUIM}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTempManifestDir("D:\\Users\\Joaquim\\")}
-                    className="bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700 text-indigo-200 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono font-bold"
+                    onClick={() => {
+                      setTempManifestDir(PATH_D_JOAQUIM);
+                      setTempSqlFilesDir(PATH_E_JOAQUIM);
+                    }}
+                    className="bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-900 text-emerald-300 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono font-semibold"
+                    title={`Define drives independentes: Manifesto em ${PATH_D_JOAQUIM} e SQLs em ${PATH_E_JOAQUIM}`}
                   >
-                    D:\Users\Joaquim
+                    Separar: {PATH_D_JOAQUIM.split(":")[0] || "D"}: (Manifesto) e {PATH_E_JOAQUIM.split(":")[0] || "E"}: (SQLs)
                   </button>
+                </div>
+                
+                {/* Descriptive Alert on Directory Freedom */}
+                <div className="bg-slate-900/60 p-2 rounded text-[10.5px] border border-slate-800 text-slate-400 font-sans leading-relaxed">
+                  💡 <strong className="text-slate-300">Drives Independentes:</strong> Os diretórios são totalmente desacoplados! Você pode, por exemplo, manter o manifesto <code className="text-indigo-300 font-mono text-[10px]">views_manifest.json</code> na unidade <span className="text-indigo-400 font-bold">{PATH_D_JOAQUIM.split(":")[0] || "D"}:</span> e salvar os arquivos <code className="text-indigo-300 font-mono text-[10px]">.sql</code> na unidade <span className="text-emerald-400 font-bold">{PATH_E_JOAQUIM.split(":")[0] || "E"}:</span>.
                 </div>
               </div>
 
               {/* Visual preview of full path */}
-              <div className="bg-indigo-950/20 text-indigo-300 p-2.5 rounded font-mono text-[10.5px] border border-indigo-900/30">
-                <span className="text-indigo-400 block font-bold text-[9px] uppercase tracking-wider mb-1 font-sans">Caminho Resultante:</span>
-                {((tempManifestDir.endsWith("/") || tempManifestDir.endsWith("\\")) 
-                  ? tempManifestDir 
-                  : (tempManifestDir.includes("\\") || /^[A-Za-z]:/.test(tempManifestDir) ? tempManifestDir + "\\" : tempManifestDir + "/")) + "views_manifest.json"}
+              <div className="bg-indigo-950/20 text-indigo-300 p-2.5 rounded font-mono text-[10.5px] border border-indigo-900/30 space-y-2">
+                <div>
+                  <span className="text-indigo-400 block font-bold text-[9px] uppercase tracking-wider mb-0.5 font-sans">Caminho do Manifesto:</span>
+                  <div className="text-slate-300 break-all">
+                    {((tempManifestDir.endsWith("/") || tempManifestDir.endsWith("\\")) 
+                      ? tempManifestDir 
+                      : (tempManifestDir.includes("\\") || /^[A-Za-z]:/.test(tempManifestDir) ? tempManifestDir + "\\" : tempManifestDir + "/")) + "views_manifest.json"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-indigo-400 block font-bold text-[9px] uppercase tracking-wider mb-0.5 font-sans">Caminho de Gravação das .sql's:</span>
+                  <div className="text-emerald-400 break-all">
+                    {((tempSqlFilesDir.endsWith("/") || tempSqlFilesDir.endsWith("\\")) 
+                      ? tempSqlFilesDir 
+                      : (tempSqlFilesDir.includes("\\") || /^[A-Za-z]:/.test(tempSqlFilesDir) ? tempSqlFilesDir + "\\" : tempSqlFilesDir + "/")) + "sql/[grupo]/[arquivo].sql"}
+                  </div>
+                </div>
               </div>
 
               {/* Physical Load Option */}
@@ -1281,7 +1459,7 @@ export default function App() {
                     id="config-btn-load-physical"
                     type="button"
                     disabled={loadingPhysical}
-                    onClick={() => handleLoadPhysicalManifest(tempManifestDir)}
+                    onClick={() => handleLoadPhysicalManifest(tempManifestDir, tempSqlFilesDir)}
                     className="w-full bg-slate-800 hover:bg-slate-705 text-slate-200 border border-slate-700 py-2 rounded text-xs transition-all flex items-center justify-center gap-1.5 font-semibold"
                   >
                     {loadingPhysical ? (
@@ -1305,6 +1483,45 @@ export default function App() {
                 )}
               </div>
 
+              {/* Data Examples Management */}
+              <div className="pt-2 border-t border-slate-800 space-y-2">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-sans">Gerenciamento de Exemplos:</span>
+                <p className="text-[11px] text-slate-500 font-sans leading-snug">
+                  Limpe ou restaure as views de exemplo padrão carregadas no navegador para fins de teste.
+                </p>
+                <div className="flex gap-2">
+                  {manifest.length > 0 ? (
+                    <button
+                      id="config-btn-clear-all"
+                      type="button"
+                      onClick={() => {
+                        handleClearViews();
+                        setIsConfigModalOpen(false);
+                      }}
+                      className="w-full bg-rose-950/40 hover:bg-rose-950/70 text-rose-300 hover:text-rose-200 border border-rose-900/50 py-2 rounded text-xs transition-all flex items-center justify-center gap-1.5 font-semibold"
+                      title="Remover todas as views de teste atuais para cadastrar as reais"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Limpar Exemplos</span>
+                    </button>
+                  ) : (
+                    <button
+                      id="config-btn-restore-examples"
+                      type="button"
+                      onClick={() => {
+                        handleRestoreExamples();
+                        setIsConfigModalOpen(false);
+                      }}
+                      className="w-full bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 border border-indigo-900/40 py-2 rounded text-xs transition-all flex items-center justify-center gap-1.5 font-semibold"
+                      title="Restaurar as views de teste do manifesto inicial"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Restaurar Exemplos</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="pt-3 border-t border-slate-800 flex justify-end space-x-2">
                 <button
                   id="config-btn-cancel"
@@ -1319,11 +1536,14 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     setManifestDir(tempManifestDir);
-                    const cleanD = tempManifestDir.endsWith("/") ? tempManifestDir : tempManifestDir + "/";
+                    setSqlFilesDir(tempSqlFilesDir);
+                    const cleanD = tempManifestDir.endsWith("/") || tempManifestDir.endsWith("\\") ? tempManifestDir : tempManifestDir + "/";
+                    const cleanSqlD = tempSqlFilesDir.endsWith("/") || tempSqlFilesDir.endsWith("\\") ? tempSqlFilesDir : tempSqlFilesDir + "/";
                     setExecutionLogs(prev => [
                       ...prev,
                       `[SISTEMA] Diretório do manifesto atualizado para: ${cleanD}`,
-                      `[MANIFESTO] Novo local do arquivo: ${cleanD}views_manifest.json`
+                      `[MANIFESTO] Novo local do arquivo: ${cleanD}views_manifest.json`,
+                      `[SISTEMA] Diretório de gravação de .sql atualizado para: ${cleanSqlD}`
                     ]);
                     setIsConfigModalOpen(false);
                   }}

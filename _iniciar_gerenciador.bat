@@ -8,7 +8,7 @@ echo =========================================================
 echo.
 
 :: 1. Direcione para a pasta onde o seu projeto está salvo localmente
-cd /d "E:\Google AI Studio\SQL-View-Governance-Dashboard"
+cd /d "E:\Google_AI_Studio\SQL-View-Governance-Dashboard"
 
 :: 2. Sincroniza o Git se você usar repositório compartilhado (Opcional - remova "::" para ativar)
 echo [GIT] Sincronizando views mais recentes...
