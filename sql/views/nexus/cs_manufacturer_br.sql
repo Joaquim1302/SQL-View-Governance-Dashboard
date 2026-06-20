@@ -1,7 +1,7 @@
 SELECT
-    ps_manufacturer.*
+    nx_ps_manufacturer.*
 FROM
-    ps_manufacturer_lang
-    INNER JOIN ps_manufacturer ON ps_manufacturer_lang.id_manufacturer = ps_manufacturer.id_manufacturer
+    nx_ps_manufacturer_lang
+    INNER JOIN nx_ps_manufacturer ON nx_ps_manufacturer_lang.id_manufacturer = nx_ps_manufacturer.id_manufacturer
 WHERE
-    (((ps_manufacturer_lang.id_lang) = 2));
+    (((nx_ps_manufacturer_lang.id_lang) = 2));

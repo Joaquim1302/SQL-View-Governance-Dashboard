@@ -1,6 +1,6 @@
 SELECT
-    ps_category_lang.*
+    nx_ps_category_lang.*
 FROM
-    ps_category_lang
+    nx_ps_category_lang
 WHERE
-    (((ps_category_lang.id_lang) = 2));
+    (((nx_ps_category_lang.id_lang) = 2));

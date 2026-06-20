@@ -4,7 +4,7 @@ import type { SQLViewEntry, SqlFile } from "./types";
 import GuideSection from "./components/GuideSection";
 import GeminiAssistant from "./components/GeminiAssistant";
 import { 
-  FolderGit, FileCode, CheckCircle, AlertTriangle, Play, Plus, Trash2, 
+  FolderGit, FileCode, CheckCircle, AlertTriangle, Play, Plus, Trash2, Pencil,
   Settings, ExternalLink, Terminal, Cpu, Layers, HelpCircle, Save, Info, RefreshCw,
   Maximize2, Minimize2
 } from "lucide-react";
@@ -108,12 +108,18 @@ export default function App() {
 
   // New View form state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingViewName, setEditingViewName] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formDatabase, setFormDatabase] = useState("nexus");
   const [formPurpose, setFormPurpose] = useState("");
   const [formOwner, setFormOwner] = useState("nexus_user");
   const [formSql, setFormSql] = useState("");
   const [formError, setFormError] = useState("");
+
+  // Configuration Modal state
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [manifestDir, setManifestDir] = useState("D:\\Users\\Joaquim\\");
+  const [tempManifestDir, setTempManifestDir] = useState("D:\\Users\\Joaquim\\");
 
   // Tabs for Central Panel: "editor" | "assistant" | "guide"
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"editor" | "assistant" | "guide">("editor");
@@ -156,7 +162,10 @@ export default function App() {
     setTimeout(() => {
       const logs: string[] = [];
       logs.push("🚀 [START] Iniciando a execução de create_nexus_views.py...");
-      logs.push("📂 [STEP 1] Lendo arquivo de manifesto: 'sql/views/views_manifest.json'...");
+      const cleanDir = (manifestDir.endsWith("/") || manifestDir.endsWith("\\")) 
+        ? manifestDir 
+        : (manifestDir.includes("\\") || /^[A-Za-z]:/.test(manifestDir) ? manifestDir + "\\" : manifestDir + "/");
+      logs.push(`📂 [STEP 1] Lendo arquivo de manifesto: '${cleanDir}views_manifest.json'...`);
       logs.push(`🔍 [STEP 2] Encontrado(s) ${manifest.length} registro(s) de views cadastrados.`);
       
       let successCount = 0;
@@ -219,7 +228,20 @@ export default function App() {
     }, 1200);
   };
 
-  // Create customized view entry
+  // Open Edit Modal with selected view details
+  const handleOpenEditModal = (item: SQLViewEntry) => {
+    const associatedSql = sqlFiles.find(f => f.filePath === item.sql_file)?.content || "";
+    setEditingViewName(item.view_name);
+    setFormName(item.view_name);
+    setFormDatabase(item.database);
+    setFormPurpose(item.purpose);
+    setFormOwner(item.owner);
+    setFormSql(associatedSql);
+    setFormError("");
+    setIsModalOpen(true);
+  };
+
+  // Create or Edit customized view entry
   const handleCreateView = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
@@ -234,44 +256,104 @@ export default function App() {
     // Predefined file folder pattern
     const sqlFilePath = `sql/views/nexus/${cleanName}.sql`;
 
-    // Add new file
-    const newSqlFile: SqlFile = {
-      filePath: sqlFilePath,
-      content: formSql
-    };
+    if (editingViewName !== null) {
+      // Edit Mode
+      // Verify duplication if the name has changed
+      if (cleanName !== editingViewName && manifest.some(item => item.view_name === cleanName)) {
+        setFormError(`Já existe uma view registrada com o nome "${cleanName}".`);
+        return;
+      }
 
-    // Add manifest entry
-    const newManifestEntry: SQLViewEntry = {
-      view_name: cleanName,
-      database: formDatabase,
-      sql_file: sqlFilePath,
-      owner: formOwner || "dev_nexus",
-      purpose: formPurpose,
-      status: "active"
-    };
+      const oldPath = `sql/views/nexus/${editingViewName}.sql`;
 
-    // Verify duplication
-    if (manifest.some(item => item.view_name === cleanName)) {
-      setFormError(`Já existe uma view registrada com o nome "${cleanName}".`);
-      return;
+      // Update / rename SQL files
+      setSqlFiles(prev => {
+        const exists = prev.some(f => f.filePath === oldPath);
+        if (exists) {
+          return prev.map(f => {
+            if (f.filePath === oldPath) {
+              return { filePath: sqlFilePath, content: formSql };
+            }
+            return f;
+          });
+        } else {
+          return [...prev, { filePath: sqlFilePath, content: formSql }];
+        }
+      });
+
+      // Update Manifest Entry
+      setManifest(prev => prev.map(item => {
+        if (item.view_name === editingViewName) {
+          return {
+            ...item,
+            view_name: cleanName,
+            database: formDatabase,
+            sql_file: sqlFilePath,
+            owner: formOwner || "dev_nexus",
+            purpose: formPurpose
+          };
+        }
+        return item;
+      }));
+
+      // Update Selected View Name if it was the edited one
+      if (selectedViewName === editingViewName) {
+        setSelectedViewName(cleanName);
+      }
+
+      setExecutionLogs(prev => [
+        ...prev,
+        `[MANIFESTO] Alterações gravadas na view "${cleanName}"`,
+        `[GIT_FS] Arquivo SQL atualizado: ${sqlFilePath}`
+      ]);
+
+      // Cleanup
+      setEditingViewName(null);
+      setFormName("");
+      setFormPurpose("");
+      setFormSql("");
+      setIsModalOpen(false);
+    } else {
+      // Create Mode
+      // Verify duplication
+      if (manifest.some(item => item.view_name === cleanName)) {
+        setFormError(`Já existe uma view registrada com o nome "${cleanName}".`);
+        return;
+      }
+
+      // Add new file
+      const newSqlFile: SqlFile = {
+        filePath: sqlFilePath,
+        content: formSql
+      };
+
+      // Add manifest entry
+      const newManifestEntry: SQLViewEntry = {
+        view_name: cleanName,
+        database: formDatabase,
+        sql_file: sqlFilePath,
+        owner: formOwner || "dev_nexus",
+        purpose: formPurpose,
+        status: "active"
+      };
+
+      setSqlFiles(prev => [...prev, newSqlFile]);
+      setManifest(prev => [...prev, newManifestEntry]);
+      setSelectedViewName(cleanName);
+      
+      // Add success trace
+      setExecutionLogs(prev => [
+        ...prev,
+        `[GIT_FS] Criado arquivo SQL sob demanda: ${sqlFilePath}`,
+        `[MANIFESTO] Registrado "${cleanName}" no views_manifest.json`
+      ]);
+
+      // Cleanup
+      setFormName("");
+      setFormPurpose("");
+      setFormSql("");
+      setIsModalOpen(false);
     }
-
-    setSqlFiles(prev => [...prev, newSqlFile]);
-    setManifest(prev => [...prev, newManifestEntry]);
-    setSelectedViewName(cleanName);
-    
-    // Add success trace
-    setExecutionLogs(prev => [
-      ...prev,
-      `[GIT_FS] Criado arquivo SQL sob demanda: ${sqlFilePath}`,
-      `[MANIFESTO] Registrado "${cleanName}" no views_manifest.json`
-    ]);
-
-    // Cleanup form
-    setFormName("");
-    setFormPurpose("");
-    setFormSql("");
-    setIsModalOpen(false);
   };
 
   // Delete View from Manifest
@@ -423,6 +505,18 @@ export default function App() {
             </button>
             <span className="text-slate-600">|</span>
             <span className="text-[10.5px] font-mono text-slate-400">v1.0.4</span>
+            <span className="text-slate-600">|</span>
+            <button
+              id="header-btn-config-manifest"
+              onClick={() => {
+                setTempManifestDir(manifestDir);
+                setIsConfigModalOpen(true);
+              }}
+              className="text-slate-400 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-slate-800/40 transition-all flex items-center justify-center"
+              title="Configurar diretório do manifesto (views_manifest.json)"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -553,7 +647,16 @@ export default function App() {
 
               <button
                 id="btn-open-create-modal"
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => {
+                  setEditingViewName(null);
+                  setFormName("");
+                  setFormDatabase("nexus");
+                  setFormPurpose("");
+                  setFormOwner("nexus_user");
+                  setFormSql("");
+                  setFormError("");
+                  setIsModalOpen(true);
+                }}
                 className="bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-2 rounded-lg text-xs font-semibold border border-slate-700/60 shadow-md transition-all flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5 text-indigo-400" />
@@ -640,8 +743,10 @@ export default function App() {
                       <FolderGit className="w-4 h-4 text-indigo-400" />
                       <span>Configurações do Manifesto</span>
                     </h3>
-                    <code className="text-[10px] text-indigo-400 font-mono bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
-                      views_manifest.json
+                    <code className="text-[10px] text-indigo-400 font-mono bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded" title="Diretório de gravação configurado">
+                      {((manifestDir.endsWith("/") || manifestDir.endsWith("\\")) 
+                        ? manifestDir 
+                        : (manifestDir.includes("\\") || /^[A-Za-z]:/.test(manifestDir) ? manifestDir + "\\" : manifestDir + "/")) + "views_manifest.json"}
                     </code>
                   </div>
 
@@ -683,6 +788,15 @@ export default function App() {
                                 }`}
                               >
                                 {item.status === 'active' ? 'Ativo' : 'Inativo'}
+                              </button>
+                              
+                              <button
+                                id={`edit-view-${item.view_name}`}
+                                onClick={() => handleOpenEditModal(item)}
+                                className="text-slate-500 hover:text-indigo-400 p-0.5 transition-colors"
+                                title="Editar view"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
                               </button>
                               
                               <button
@@ -861,12 +975,19 @@ export default function App() {
             
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-sm font-semibold text-slate-100 flex items-center space-x-2">
-                <Plus className="w-4 h-4 text-indigo-400" />
-                <span>Registrar Nova View no Git & Manifesto</span>
+                {editingViewName !== null ? (
+                  <Pencil className="w-4 h-4 text-indigo-400" />
+                ) : (
+                  <Plus className="w-4 h-4 text-indigo-400" />
+                )}
+                <span>{editingViewName !== null ? "Editar View no Git & Manifesto" : "Registrar Nova View no Git & Manifesto"}</span>
               </h3>
               <button 
                 id="btn-close-modal"
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setEditingViewName(null);
+                  setIsModalOpen(false);
+                }}
                 className="text-slate-400 hover:text-slate-200 text-base"
               >
                 &times;
@@ -954,7 +1075,10 @@ export default function App() {
                 <button
                   id="modal-btn-cancel"
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setEditingViewName(null);
+                    setIsModalOpen(false);
+                  }}
                   className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
                 >
                   Cancelar
@@ -964,11 +1088,129 @@ export default function App() {
                   type="submit"
                   className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-semibold text-white shadow"
                 >
-                  Confirmar Registro
+                  {editingViewName !== null ? "Confirmar Alterações" : "Confirmar Registro"}
                 </button>
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIG MANIFEST DIR MODAL DIALOG */}
+      {isConfigModalOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn" id="config-manifest-modal">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 text-slate-100 space-y-4 shadow-2xl">
+            
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-semibold text-slate-100 flex items-center space-x-2">
+                <Settings className="w-4 h-4 text-indigo-400" />
+                <span>Configurar Diretório do Manifesto</span>
+              </h3>
+              <button 
+                id="btn-close-config-modal"
+                onClick={() => setIsConfigModalOpen(false)}
+                className="text-slate-400 hover:text-slate-200 text-base font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <p className="text-slate-400 leading-relaxed font-sans font-medium">
+                Defina o diretório onde o arquivo <code className="text-indigo-300 font-bold font-mono">views_manifest.json</code> é lido e gravado por este aplicativo e pelo script Python.
+              </p>
+
+              <div className="space-y-1">
+                <label className="block font-semibold text-slate-300">Diretório de Gravação:</label>
+                <div className="flex gap-2">
+                  <input
+                    id="config-input-dir"
+                    type="text"
+                    required
+                    placeholder="./"
+                    value={tempManifestDir}
+                    onChange={(e) => setTempManifestDir(e.target.value)}
+                    className="flex-1 bg-slate-950 border border-slate-850 rounded p-2 text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-500 block italic mt-1 font-sans">
+                  Exemplos: <code className="text-slate-400 NOT-italic">./</code>, <code className="text-slate-400 NOT-italic">sql/views/</code>, <code className="text-slate-400 NOT-italic">src/</code>
+                </span>
+              </div>
+
+              {/* Quick Directory Presets to make it look even more professional */}
+              <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-sans">Atalhos de Diretório:</span>
+                <div className="flex flex-wrap gap-1.5 font-mono">
+                  <button
+                    type="button"
+                    onClick={() => setTempManifestDir("./")}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono"
+                  >
+                    Raiz (./)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTempManifestDir("sql/views/")}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono"
+                  >
+                    sql/views/
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTempManifestDir("src/")}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono"
+                  >
+                    src/
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTempManifestDir("D:\\Users\\Joaquim\\")}
+                    className="bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700 text-indigo-200 px-2 py-1 rounded text-[10px] hover:text-white transition-all font-mono font-bold"
+                  >
+                    D:\Users\Joaquim
+                  </button>
+                </div>
+              </div>
+
+              {/* Visual preview of full path */}
+              <div className="bg-indigo-950/20 text-indigo-300 p-2.5 rounded font-mono text-[10.5px] border border-indigo-900/30">
+                <span className="text-indigo-400 block font-bold text-[9px] uppercase tracking-wider mb-1 font-sans">Caminho Resultante:</span>
+                {((tempManifestDir.endsWith("/") || tempManifestDir.endsWith("\\")) 
+                  ? tempManifestDir 
+                  : (tempManifestDir.includes("\\") || /^[A-Za-z]:/.test(tempManifestDir) ? tempManifestDir + "\\" : tempManifestDir + "/")) + "views_manifest.json"}
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex justify-end space-x-2">
+                <button
+                  id="config-btn-cancel"
+                  type="button"
+                  onClick={() => setIsConfigModalOpen(false)}
+                  className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  id="config-btn-save"
+                  type="button"
+                  onClick={() => {
+                    setManifestDir(tempManifestDir);
+                    const cleanD = tempManifestDir.endsWith("/") ? tempManifestDir : tempManifestDir + "/";
+                    setExecutionLogs(prev => [
+                      ...prev,
+                      `[SISTEMA] Diretório do manifesto atualizado para: ${cleanD}`,
+                      `[MANIFESTO] Novo local do arquivo: ${cleanD}views_manifest.json`
+                    ]);
+                    setIsConfigModalOpen(false);
+                  }}
+                  className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-semibold text-white shadow transition-all"
+                >
+                  Salvar Configuração
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
       )}

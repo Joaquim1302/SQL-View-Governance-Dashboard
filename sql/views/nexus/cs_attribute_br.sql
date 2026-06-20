@@ -1,6 +1,6 @@
 SELECT
-    ps_attribute_lang.*
+    nx_ps_attribute_lang.*
 FROM
-    ps_attribute_lang
+    nx_ps_attribute_lang
 WHERE
-    (((ps_attribute_lang.id_lang) = 2));
+    (((nx_ps_attribute_lang.id_lang) = 2));
