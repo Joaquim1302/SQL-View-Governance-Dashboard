@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -166,6 +167,129 @@ Respond ONLY with JSON matching:
     return res.status(500).json({
       error: "Erro ao gerar código da View com inteligência artificial.",
       details: error.message
+    });
+  }
+});
+
+// Route 3: Physical Save/Deploy of Manifest and SQL files in custom directory
+app.post("/api/manifest/deploy", (req, res) => {
+  const { manifestDir, manifest, sqlFiles } = req.body;
+  if (!manifestDir) {
+    return res.status(400).json({ error: "O parâmetro manifestDir é obrigatório." });
+  }
+
+  try {
+    let cleanDir = manifestDir;
+    // Normalize path separators based on input
+    if (!cleanDir.endsWith("/") && !cleanDir.endsWith("\\")) {
+      if (cleanDir.includes("\\") || /^[A-Za-z]:/.test(cleanDir)) {
+        cleanDir += "\\";
+      } else {
+        cleanDir += "/";
+      }
+    }
+
+    console.log(`[MANIFEST DEPLOY] Gravando manifesto físico em: ${cleanDir}`);
+
+    // Create the directory recursively if it doesn't exist
+    if (!fs.existsSync(cleanDir)) {
+      fs.mkdirSync(cleanDir, { recursive: true });
+    }
+
+    // Save views_manifest.json
+    const manifestPath = path.join(cleanDir, "views_manifest.json");
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
+
+    // Save individual .sql files
+    const writtenFiles: string[] = [];
+    if (sqlFiles && Array.isArray(sqlFiles)) {
+      for (const file of sqlFiles) {
+        if (!file.filePath) continue;
+        
+        // Ensure directories for individual SQL files exist too
+        const fullSqlPath = path.join(cleanDir, file.filePath);
+        const sqlDir = path.dirname(fullSqlPath);
+        
+        if (!fs.existsSync(sqlDir)) {
+          fs.mkdirSync(sqlDir, { recursive: true });
+        }
+
+        fs.writeFileSync(fullSqlPath, file.content || "", "utf-8");
+        writtenFiles.push(file.filePath);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "Manifesto e scripts SQL gravados localmente no diretório com sucesso!",
+      manifestPath,
+      writtenFiles
+    });
+  } catch (err: any) {
+    console.error("Erro ao gravar manifesto fisico no disco:", err);
+    return res.status(500).json({
+      error: "Não foi possível gravar o arquivo manifesto localmente.",
+      details: err.message
+    });
+  }
+});
+
+// Route 4: Physical Loading of Manifest and SQL files from custom directory
+app.post("/api/manifest/load", (req, res) => {
+  const { manifestDir } = req.body;
+  if (!manifestDir) {
+    return res.status(400).json({ error: "O parâmetro manifestDir é obrigatório." });
+  }
+
+  try {
+    let cleanDir = manifestDir;
+    if (!cleanDir.endsWith("/") && !cleanDir.endsWith("\\")) {
+      if (cleanDir.includes("\\") || /^[A-Za-z]:/.test(cleanDir)) {
+        cleanDir += "\\";
+      } else {
+        cleanDir += "/";
+      }
+    }
+
+    const manifestPath = path.join(cleanDir, "views_manifest.json");
+    if (!fs.existsSync(manifestPath)) {
+      return res.status(404).json({
+        error: `Arquivo views_manifest.json não encontrado no diretório: ${cleanDir}`
+      });
+    }
+
+    // Load manifest
+    const manifestContent = fs.readFileSync(manifestPath, "utf-8");
+    const manifestData = JSON.parse(manifestContent);
+
+    // Load associated SQL files listed in the manifest
+    const sqlFilesList: { filePath: string; content: string }[] = [];
+    if (Array.isArray(manifestData)) {
+      for (const item of manifestData) {
+        if (item.sql_file) {
+          const fullSqlPath = path.join(cleanDir, item.sql_file);
+          if (fs.existsSync(fullSqlPath)) {
+            const sqlContent = fs.readFileSync(fullSqlPath, "utf-8");
+            sqlFilesList.push({
+              filePath: item.sql_file,
+              content: sqlContent
+            });
+          }
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      manifest: manifestData,
+      sqlFiles: sqlFilesList,
+      loadedFrom: manifestPath
+    });
+  } catch (err: any) {
+    console.error("Erro ao ler manifesto fisico do disco:", err);
+    return res.status(500).json({
+      error: "Falha ao ler dados do manifesto local.",
+      details: err.message
     });
   }
 });

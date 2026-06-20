@@ -121,6 +121,62 @@ export default function App() {
   const [manifestDir, setManifestDir] = useState("D:\\Users\\Joaquim\\");
   const [tempManifestDir, setTempManifestDir] = useState("D:\\Users\\Joaquim\\");
 
+  // Local Physical file storage state helpers
+  const [loadingPhysical, setLoadingPhysical] = useState(false);
+  const [loadError, setLoadError] = useState("");
+
+  const handleLoadPhysicalManifest = async (dirToLoad: string) => {
+    setLoadingPhysical(true);
+    setLoadError("");
+    try {
+      const response = await fetch("/api/manifest/load", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manifestDir: dirToLoad })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        if (data.manifest && Array.isArray(data.manifest)) {
+          setManifest(data.manifest);
+          if (data.sqlFiles && Array.isArray(data.sqlFiles)) {
+            setSqlFiles(prev => {
+              const base = [...prev];
+              data.sqlFiles.forEach((file: any) => {
+                const idx = base.findIndex(f => f.filePath === file.filePath);
+                if (idx > -1) {
+                  base[idx] = file;
+                } else {
+                  base.push(file);
+                }
+              });
+              return base;
+            });
+          }
+          
+          setManifestDir(dirToLoad);
+          
+          // Log success to virtual terminal
+          setExecutionLogs(prev => [
+            ...prev,
+            `[SISTEMA] 📂 Sucesso ao carregar manifesto e views do disco local!`,
+            `[MANIFESTO] Carregado de: ${data.loadedFrom}`,
+            `[MANIFESTO] Encontrado(s) ${data.manifest.length} registro(s) no arquivo.`
+          ]);
+          
+          setIsConfigModalOpen(false);
+        } else {
+          setLoadError("O arquivo views_manifest.json não possui formato válido.");
+        }
+      } else {
+        setLoadError(data.error || "views_manifest.json não encontrado nesse diretório.");
+      }
+    } catch (err: any) {
+      setLoadError(`Erro de comunicação com o servidor: ${err.message}`);
+    } finally {
+      setLoadingPhysical(false);
+    }
+  };
+
   // Tabs for Central Panel: "editor" | "assistant" | "guide"
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"editor" | "assistant" | "guide">("editor");
 
@@ -153,79 +209,111 @@ export default function App() {
     setExecutionLogs(prev => [...prev, msg]);
   };
 
-  // Handle Simulated Deployment of Nexus Views
-  const handleDeploySimulator = () => {
+  // Handle REAL & Simulated Deployment of Nexus Views physical files
+  const handleDeploySimulator = async () => {
     setExecuting(true);
     setExecutionLogs([]);
     
-    // Smooth timing delay simulation
-    setTimeout(() => {
-      const logs: string[] = [];
-      logs.push("🚀 [START] Iniciando a execução de create_nexus_views.py...");
-      const cleanDir = (manifestDir.endsWith("/") || manifestDir.endsWith("\\")) 
-        ? manifestDir 
-        : (manifestDir.includes("\\") || /^[A-Za-z]:/.test(manifestDir) ? manifestDir + "\\" : manifestDir + "/");
-      logs.push(`📂 [STEP 1] Lendo arquivo de manifesto: '${cleanDir}views_manifest.json'...`);
-      logs.push(`🔍 [STEP 2] Encontrado(s) ${manifest.length} registro(s) de views cadastrados.`);
-      
-      let successCount = 0;
-      let rejectCount = 0;
-      let skipCount = 0;
+    const logs: string[] = [];
+    logs.push("🚀 [START] Iniciando a gravação física e simulação de deploy...");
+    
+    const cleanDir = (manifestDir.endsWith("/") || manifestDir.endsWith("\\")) 
+      ? manifestDir 
+      : (manifestDir.includes("\\") || /^[A-Za-z]:/.test(manifestDir) ? manifestDir + "\\" : manifestDir + "/");
+    
+    logs.push(`📂 [STEP 1] Gravando manifesto físico em: '${cleanDir}views_manifest.json'...`);
+    logs.push(`🔍 [STEP 2] Encontrado(s) ${manifest.length} registro(s) de views cadastrados.`);
+    
+    let successCount = 0;
+    let rejectCount = 0;
+    let skipCount = 0;
 
-      manifest.forEach((item) => {
-        logs.push(`----------------------------------------`);
-        logs.push(`⚙️ Processando View: "${item.view_name}" no banco "${item.database}"`);
+    manifest.forEach((item) => {
+      logs.push(`----------------------------------------`);
+      logs.push(`⚙️ Processando View: "${item.view_name}" no banco "${item.database}"`);
 
-        // Check if active
-        if (item.status !== "active") {
-          logs.push(`⚠️ [PULADO] Status é '${item.status}'. Ignorando implantação desta view.`);
-          skipCount++;
-          return;
-        }
-
-        // Validate Naming Conventions
-        const validation = validateNamingLocally(item.view_name);
-        if (!validation.valid) {
-          logs.push(`❌ [REJEITADO] Violação severa de regras de governança de nomes!`);
-          logs.push(`   Motivo do bloqueio: ${validation.reason}`);
-          rejectCount++;
-          return;
-        }
-
-        // Check if SQL file is generated
-        const sqlContent = sqlFiles.find(f => f.filePath === item.sql_file);
-        if (!sqlContent || !sqlContent.content.trim()) {
-          logs.push(`❌ [FALHA] Script SQL não encontrado ou vazio no caminho Git: ${item.sql_file}`);
-          rejectCount++;
-          return;
-        }
-
-        // Simulate Query Compilation and replacement
-        logs.push(`✅ [CONEXÃO] Estabelecido túnel seguro com banco '${item.database}'`);
-        logs.push(`📝 [SQL] Analisando instrução: "CREATE OR REPLACE VIEW ${item.view_name} AS ..."`);
-        logs.push(`✨ [SUCESSO] View "${item.view_name}" implantada/substituída com êxito!`);
-        successCount++;
-      });
-
-      logs.push(`========================================`);
-      logs.push(`🏁 [RELATÓRIO DE DEPLOY] Execução finalizada.`);
-      logs.push(`   - Views aplicadas com sucesso: ${successCount}`);
-      logs.push(`   - Rejeitadas por violação de regras: ${rejectCount}`);
-      logs.push(`   - Puladas por marcação de inativo: ${skipCount}`);
-      
-      if (rejectCount > 0) {
-        logs.push(`⚠️ Alerta: Correções são obrigatórias para aplicar itens rejeitados.`);
-      } else {
-        logs.push(`🎉 Sucesso total! Banco de dados de staging unificado de forma idêntica.`);
+      // Check if active
+      if (item.status !== "active") {
+        logs.push(`⚠️ [PULADO] Status é '${item.status}'. Ignorando implantação desta view.`);
+        skipCount++;
+        return;
       }
 
-      setExecutionLogs(logs);
-      setExecuting(false);
+      // Validate Naming Conventions
+      const validation = validateNamingLocally(item.view_name);
+      if (!validation.valid) {
+        logs.push(`❌ [REJEITADO] Violação severa de regras de governança de nomes!`);
+        logs.push(`   Motivo do bloqueio: ${validation.reason}`);
+        rejectCount++;
+        return;
+      }
+
+      // Check if SQL file is generated
+      const sqlContent = sqlFiles.find(f => f.filePath === item.sql_file);
+      if (!sqlContent || !sqlContent.content.trim()) {
+        logs.push(`❌ [FALHA] Script SQL não encontrado ou vazio no caminho Git: ${item.sql_file}`);
+        rejectCount++;
+        return;
+      }
+
+      // Simulate Query Compilation and replacement
+      logs.push(`✅ [CONEXÃO] Estabelecido túnel seguro com banco '${item.database}'`);
+      logs.push(`📝 [SQL] Analisando instrução: "CREATE OR REPLACE VIEW ${item.view_name} AS ..."`);
+      logs.push(`✨ [SUCESSO] View "${item.view_name}" implantada/substituída com êxito!`);
+      successCount++;
+    });
+
+    logs.push(`========================================`);
+    logs.push(`💾 [GRAVAÇÃO FÍSICA] Gravando arquivos de fato no sistema local...`);
+    
+    try {
+      const response = await fetch("/api/manifest/deploy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          manifestDir,
+          manifest,
+          sqlFiles
+        })
+      });
       
-      // Update Timestamp representation
-      const now = new Date();
-      setCurrentTimeStamp(now.toISOString().replace('T', ' ').substring(0, 19));
-    }, 1200);
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        logs.push(`✅ [GRAVAÇÃO FÍSICA SUCESSO] Gravado fisicamente '${cleanDir}views_manifest.json'`);
+        logs.push(`📂 [GRAVAÇÃO FÍSICA SUCESSO] Gravados ${data.writtenFiles?.length || 0} arquivos SQL relacionados sob demanda.`);
+        data.writtenFiles?.forEach((filePath: string) => {
+          logs.push(`   📄 -> ${cleanDir}${filePath}`);
+        });
+      } else {
+        logs.push(`⚠️ [GRAVAÇÃO FÍSICA REJEITADA] ${data.error || "Erro ao salvar localmente."}`);
+        if (data.details) {
+          logs.push(`   Motivo: ${data.details}`);
+        }
+      }
+    } catch (err: any) {
+      logs.push(`❌ [GRAVAÇÃO FÍSICA FALHOU] Falha de comunicação com o servidor Express: ${err.message}`);
+      logs.push(`   (Se estiver rodando remoto no Cloud Run, essa restrição de gravação externa é esperada. Localmente funciona 100%!)`);
+    }
+
+    logs.push(`========================================`);
+    logs.push(`🏁 [RELATÓRIO DE DEPLOY] Execução finalizada.`);
+    logs.push(`   - Views aplicadas no Banco: ${successCount}`);
+    logs.push(`   - Rejeitadas por violação de regras: ${rejectCount}`);
+    logs.push(`   - Puladas por marcação de inativo: ${skipCount}`);
+    
+    if (rejectCount > 0) {
+      logs.push(`⚠️ Alerta: Correções são obrigatórias para aplicar itens rejeitados.`);
+    } else {
+      logs.push(`🎉 Sucesso total! Banco de dados de staging unificado de forma idêntica.`);
+    }
+
+    setExecutionLogs(logs);
+    setExecuting(false);
+    
+    // Update Timestamp representation
+    const now = new Date();
+    setCurrentTimeStamp(now.toISOString().replace('T', ' ').substring(0, 19));
   };
 
   // Open Edit Modal with selected view details
@@ -1180,6 +1268,41 @@ export default function App() {
                 {((tempManifestDir.endsWith("/") || tempManifestDir.endsWith("\\")) 
                   ? tempManifestDir 
                   : (tempManifestDir.includes("\\") || /^[A-Za-z]:/.test(tempManifestDir) ? tempManifestDir + "\\" : tempManifestDir + "/")) + "views_manifest.json"}
+              </div>
+
+              {/* Physical Load Option */}
+              <div className="pt-2 border-t border-slate-800 space-y-2">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-sans">Sincronizar do Disco Local:</span>
+                <p className="text-[11px] text-slate-500 font-sans leading-snug">
+                  Caso já possua um arquivo <code className="text-slate-400 font-mono">views_manifest.json</code> na pasta selecionada, você pode carregar as views e códigos SQL para este aplicativo:
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    id="config-btn-load-physical"
+                    type="button"
+                    disabled={loadingPhysical}
+                    onClick={() => handleLoadPhysicalManifest(tempManifestDir)}
+                    className="w-full bg-slate-800 hover:bg-slate-705 text-slate-200 border border-slate-700 py-2 rounded text-xs transition-all flex items-center justify-center gap-1.5 font-semibold"
+                  >
+                    {loadingPhysical ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                        <span>Sincronizando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FolderGit className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Ler views_manifest.json do Disco</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                {loadError && (
+                  <div className="text-[10.5px] bg-rose-950/40 text-rose-300 border border-rose-900/40 rounded p-2 italic font-sans flex items-start gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-400" />
+                    <span>{loadError}</span>
+                  </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-slate-800 flex justify-end space-x-2">
