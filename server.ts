@@ -210,8 +210,8 @@ app.post("/api/manifest/deploy", (req, res) => {
       fs.mkdirSync(cleanSqlDir, { recursive: true });
     }
 
-    // Save views_manifest.json
-    const manifestPath = path.join(cleanDir, "views_manifest.json");
+    // Save create_nexus_views_manifests.json
+    const manifestPath = path.join(cleanDir, "create_nexus_views_manifests.json");
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
 
     // Save individual .sql files
@@ -274,10 +274,10 @@ app.post("/api/manifest/load", (req, res) => {
       }
     }
 
-    const manifestPath = path.join(cleanDir, "views_manifest.json");
+    const manifestPath = path.join(cleanDir, "create_nexus_views_manifests.json");
     if (!fs.existsSync(manifestPath)) {
       return res.status(404).json({
-        error: `Arquivo views_manifest.json não encontrado no diretório: ${cleanDir}`
+        error: `Arquivo create_nexus_views_manifests.json não encontrado no diretório: ${cleanDir}`
       });
     }
 

@@ -146,7 +146,7 @@ export default function GuideSection() {
           <div className="space-y-1">
             <h4 className="text-amber-800 dark:text-amber-400 font-semibold text-sm">A Regra de Ouro do Nexus One</h4>
             <p className="text-xs text-amber-700 dark:text-amber-500 leading-relaxed">
-              <strong>Nenhuma view deve ser criada diretamente no MySQL Workbench ou DBeaver!</strong> Todas as instruções de view SQL devem ser salvas fisicamente nas pastas locais rastreadas pelo Git e registradas sob o manifesto oficial <code>views_manifest.json</code>. O script de automação lê as views ativas e executa de forma limpa.
+              <strong>Nenhuma view deve ser criada diretamente no MySQL Workbench ou DBeaver!</strong> Todas as instruções de view SQL devem ser salvas fisicamente nas pastas locais rastreadas pelo Git e registradas sob o manifesto oficial <code>create_nexus_views_manifests.json</code>. O script de automação lê as views ativas e executa de forma limpa.
             </p>
           </div>
         </div>

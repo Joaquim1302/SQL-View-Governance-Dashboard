@@ -45,7 +45,7 @@ export default function App() {
   const [executing, setExecuting] = useState(false);
   const [executionLogs, setExecutionLogs] = useState<string[]>([
     "[READY] Sistema operacional simulado iniciado.",
-    "[INFO] Carregando visualizador de manifesto de views_manifest.json...",
+    "[INFO] Carregando visualizador de manifesto de create_nexus_views_manifests.json...",
     "[GIT] Repositório sincronizado com a branch 'main'."
   ]);
   const [currentTimeStamp, setCurrentTimeStamp] = useState<string>("2026-06-18 04:19:06");
@@ -172,10 +172,10 @@ export default function App() {
           
           setIsConfigModalOpen(false);
         } else {
-          setLoadError("O arquivo views_manifest.json não possui formato válido.");
+          setLoadError("O arquivo create_nexus_views_manifests.json não possui formato válido.");
         }
       } else {
-        setLoadError(data.error || "views_manifest.json não encontrado nesse diretório.");
+        setLoadError(data.error || "create_nexus_views_manifests.json não encontrado nesse diretório.");
       }
     } catch (err: any) {
       setLoadError(`Erro de comunicação com o servidor: ${err.message}`);
@@ -246,7 +246,7 @@ export default function App() {
   };
 
   // Sort manifest by dependencies so views that are dependencies are built first,
-  // and views that depend on them are saved/listed last in views_manifest.json.
+  // and views that depend on them are saved/listed last in create_nexus_views_manifests.json.
   const sortManifestByDependencies = (items: SQLViewEntry[]): SQLViewEntry[] => {
     const sorted: SQLViewEntry[] = [];
     const visited = new Set<string>();
@@ -313,7 +313,7 @@ export default function App() {
     const logs: string[] = [];
     logs.push("🚀 [START] Iniciando a gravação física e simulação de deploy...");
     
-    // Sort manifest by dependencies so views that have dependencies are saved LAST in views_manifest.json
+    // Sort manifest by dependencies so views that have dependencies are saved LAST in create_nexus_views_manifests.json
     const orderedManifest = sortManifestByDependencies(manifest);
     setManifest(orderedManifest);
 
@@ -325,9 +325,9 @@ export default function App() {
       ? sqlFilesDir 
       : (sqlFilesDir.includes("\\") || /^[A-Za-z]:/.test(sqlFilesDir) ? sqlFilesDir + "\\" : sqlFilesDir + "/");
     
-    logs.push(`📂 [STEP 1] Gravando manifesto físico em: '${cleanDir}views_manifest.json'...`);
+    logs.push(`📂 [STEP 1] Gravando manifesto físico em: '${cleanDir}create_nexus_views_manifests.json'...`);
     logs.push(`📂 [STEP 1] Gravando scripts SQL em: '${cleanSqlDir}'...`);
-    logs.push(`🔄 [STEP 1.5] Ordenando views_manifest por hierarquia de dependência para evitar falhas consecutivas de compilação...`);
+    logs.push(`🔄 [STEP 1.5] Ordenando create_nexus_views_manifests por hierarquia de dependência para evitar falhas consecutivas de compilação...`);
     logs.push(`🔍 [STEP 2] Encontrado(s) ${orderedManifest.length} registro(s) de views cadastrados na ordem ideal de criação.`);
     
     let successCount = 0;
@@ -387,7 +387,7 @@ export default function App() {
       const data = await response.json();
       
       if (response.ok && data.success) {
-        logs.push(`✅ [GRAVAÇÃO FÍSICA SUCESSO] Gravado fisicamente '${cleanDir}views_manifest.json'`);
+        logs.push(`✅ [GRAVAÇÃO FÍSICA SUCESSO] Gravado fisicamente '${cleanDir}create_nexus_views_manifests.json'`);
         logs.push(`📂 [GRAVAÇÃO FÍSICA SUCESSO] Gravados ${data.writtenFiles?.length || 0} arquivos SQL relacionados sob demanda.`);
         data.writtenFiles?.forEach((filePath: string) => {
           logs.push(`   📄 -> ${cleanSqlDir}${filePath}`);
@@ -540,7 +540,7 @@ export default function App() {
       setExecutionLogs(prev => [
         ...prev,
         `[GIT_FS] Criado arquivo SQL sob demanda: ${sqlFilePath}`,
-        `[MANIFESTO] Registrado "${cleanName}" no views_manifest.json`
+        `[MANIFESTO] Registrado "${cleanName}" no create_nexus_views_manifests.json`
       ]);
 
       // Cleanup
@@ -566,7 +566,7 @@ export default function App() {
 
     setExecutionLogs(prev => [
       ...prev,
-      `[MANIFESTO] View "${viewName}" foi removida do views_manifest.json.`
+      `[MANIFESTO] View "${viewName}" foi removida do create_nexus_views_manifests.json.`
     ]);
   };
 
@@ -636,7 +636,7 @@ export default function App() {
     setSelectedViewName("");
     setExecutionLogs([
       "[SISTEMA] 🧹 Limpeza completa realizada com sucesso!",
-      "[MANIFESTO] views_manifest.json virtual agora está completamente vazio (0 views de teste no navegador).",
+      "[MANIFESTO] create_nexus_views_manifests.json virtual agora está completamente vazio (0 views de teste no navegador).",
       "[DICA] Use o botão 'Cadastrar Nova View' ou envie uma mensagem no chat da I.A. assistente para registrar as suas views reais!",
       "[DICA EXTRA] Se precisar restaurar os exemplos padrão depois, basta clicar no botão 'Restaurar Exemplos' que aparecerá ao lado!"
     ]);
@@ -648,7 +648,7 @@ export default function App() {
     setSelectedViewName("cs_manufacturer_br");
     setExecutionLogs([
       "[SISTEMA] 🔄 Modelos e views de exemplo restauradas com sucesso!",
-      "[MANIFESTO]views_manifest.json carregou novamente os 5 exemplos de staging e view analítica padrão do Nexus."
+      "[MANIFESTO] create_nexus_views_manifests.json carregou novamente os 5 exemplos de staging e view analítica padrão do Nexus."
     ]);
   };
 
@@ -781,7 +781,7 @@ export default function App() {
                 className="w-full flex items-center gap-2 px-2 py-2 mt-4 text-slate-300 bg-slate-900/60 rounded border border-slate-800 hover:bg-slate-800/80 hover:text-white transition-all text-left font-mono text-xs"
               >
                 <FolderGit className="w-3.5 h-3.5 text-amber-500" />
-                <span className="font-bold">views_manifest.json</span>
+                <span className="font-bold">create_nexus_views_manifests.json</span>
               </button>
             </div>
           </div>
@@ -822,7 +822,7 @@ export default function App() {
               </div>
               <h1 className="text-2xl sm:text-3xl font-light text-white tracking-tight font-sans">Gerenciador de SQL Views</h1>
               <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
-                Nenhuma view é criada solta no Workbench. Forçamos a validação de arquivos no Git integrando o controle de arquivo manifesto <code>views_manifest.json</code> de forma automatizada.
+                Nenhuma view é criada solta no Workbench. Forçamos a validação de arquivos no Git integrando o controle de arquivo manifesto <code>create_nexus_views_manifests.json</code> de forma automatizada.
               </p>
             </div>
 
@@ -930,7 +930,7 @@ export default function App() {
                     <code className="text-[10px] text-indigo-400 font-mono bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded" title="Diretório de gravação configurado">
                       {((manifestDir.endsWith("/") || manifestDir.endsWith("\\")) 
                         ? manifestDir 
-                        : (manifestDir.includes("\\") || /^[A-Za-z]:/.test(manifestDir) ? manifestDir + "\\" : manifestDir + "/")) + "views_manifest.json"}
+                        : (manifestDir.includes("\\") || /^[A-Za-z]:/.test(manifestDir) ? manifestDir + "\\" : manifestDir + "/")) + "create_nexus_views_manifests.json"}
                     </code>
                   </div>
 
@@ -1329,12 +1329,12 @@ export default function App() {
 
             <div className="space-y-3.5 text-xs">
               <p className="text-slate-400 leading-relaxed font-sans font-medium">
-                Defina o diretório onde o arquivo <code className="text-indigo-300 font-bold font-mono">views_manifest.json</code> e os scripts individuais <code className="text-indigo-300 font-bold font-mono">.sql</code> serão lidos e gravados.
+                Defina o diretório onde o arquivo <code className="text-indigo-300 font-bold font-mono">create_nexus_views_manifests.json</code> e os scripts individuais <code className="text-indigo-300 font-bold font-mono">.sql</code> serão lidos e gravados.
               </p>
 
               <div className="space-y-2">
                 <div className="space-y-1">
-                  <label className="block font-semibold text-slate-300">Diretório do Manifesto (views_manifest.json):</label>
+                  <label className="block font-semibold text-slate-300">Diretório do Manifesto (create_nexus_views_manifests.json):</label>
                   <div className="flex gap-2">
                     <input
                       id="config-input-dir"
@@ -1347,7 +1347,7 @@ export default function App() {
                     />
                   </div>
                   <span className="text-[10px] text-slate-500 block italic mt-0.5 font-sans">
-                    Diretório base onde se localiza o arquivo views_manifest.json
+                    Diretório base onde se localiza o arquivo create_nexus_views_manifests.json
                   </span>
                 </div>
 
@@ -1424,7 +1424,7 @@ export default function App() {
                 
                 {/* Descriptive Alert on Directory Freedom */}
                 <div className="bg-slate-900/60 p-2 rounded text-[10.5px] border border-slate-800 text-slate-400 font-sans leading-relaxed">
-                  💡 <strong className="text-slate-300">Drives Independentes:</strong> Os diretórios são totalmente desacoplados! Você pode, por exemplo, manter o manifesto <code className="text-indigo-300 font-mono text-[10px]">views_manifest.json</code> na unidade <span className="text-indigo-400 font-bold">{PATH_D_JOAQUIM.split(":")[0] || "D"}:</span> e salvar os arquivos <code className="text-indigo-300 font-mono text-[10px]">.sql</code> na unidade <span className="text-emerald-400 font-bold">{PATH_E_JOAQUIM.split(":")[0] || "E"}:</span>.
+                  💡 <strong className="text-slate-300">Drives Independentes:</strong> Os diretórios são totalmente desacoplados! Você pode, por exemplo, manter o manifesto <code className="text-indigo-300 font-mono text-[10px]">create_nexus_views_manifests.json</code> na unidade <span className="text-indigo-400 font-bold">{PATH_D_JOAQUIM.split(":")[0] || "D"}:</span> e salvar os arquivos <code className="text-indigo-300 font-mono text-[10px]">.sql</code> na unidade <span className="text-emerald-400 font-bold">{PATH_E_JOAQUIM.split(":")[0] || "E"}:</span>.
                 </div>
               </div>
 
@@ -1435,7 +1435,7 @@ export default function App() {
                   <div className="text-slate-300 break-all">
                     {((tempManifestDir.endsWith("/") || tempManifestDir.endsWith("\\")) 
                       ? tempManifestDir 
-                      : (tempManifestDir.includes("\\") || /^[A-Za-z]:/.test(tempManifestDir) ? tempManifestDir + "\\" : tempManifestDir + "/")) + "views_manifest.json"}
+                      : (tempManifestDir.includes("\\") || /^[A-Za-z]:/.test(tempManifestDir) ? tempManifestDir + "\\" : tempManifestDir + "/")) + "create_nexus_views_manifests.json"}
                   </div>
                 </div>
                 <div>
@@ -1452,7 +1452,7 @@ export default function App() {
               <div className="pt-2 border-t border-slate-800 space-y-2">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-sans">Sincronizar do Disco Local:</span>
                 <p className="text-[11px] text-slate-500 font-sans leading-snug">
-                  Caso já possua um arquivo <code className="text-slate-400 font-mono">views_manifest.json</code> na pasta selecionada, você pode carregar as views e códigos SQL para este aplicativo:
+                  Caso já possua um arquivo <code className="text-slate-400 font-mono">create_nexus_views_manifests.json</code> na pasta selecionada, você pode carregar as views e códigos SQL para este aplicativo:
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -1470,7 +1470,7 @@ export default function App() {
                     ) : (
                       <>
                         <FolderGit className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>Ler views_manifest.json do Disco</span>
+                        <span>Ler create_nexus_views_manifests.json do Disco</span>
                       </>
                     )}
                   </button>
@@ -1542,7 +1542,7 @@ export default function App() {
                     setExecutionLogs(prev => [
                       ...prev,
                       `[SISTEMA] Diretório do manifesto atualizado para: ${cleanD}`,
-                      `[MANIFESTO] Novo local do arquivo: ${cleanD}views_manifest.json`,
+                      `[MANIFESTO] Novo local do arquivo: ${cleanD}create_nexus_views_manifests.json`,
                       `[SISTEMA] Diretório de gravação de .sql atualizado para: ${cleanSqlD}`
                     ]);
                     setIsConfigModalOpen(false);

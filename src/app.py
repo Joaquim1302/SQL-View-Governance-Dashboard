@@ -87,7 +87,7 @@ class NexusOneApp(ctk.CTk):
         
         self.desc_label = ctk.CTkLabel(
             self.header_frame, 
-            text="Controle robusto integrado ao arquivo Git local: sql/views/views_manifest.json", 
+            text="Controle robusto integrado ao arquivo Git local: sql/views/create_nexus_views_manifests.json", 
             text_color="#94A3B8"
         )
         self.desc_label.grid(row=1, column=0, sticky="w")
@@ -141,7 +141,7 @@ class NexusOneApp(ctk.CTk):
         self.terminal_output.see("end")
 
     def load_manifest(self):
-        manifest_path = "views_manifest.json"
+        manifest_path = "create_nexus_views_manifests.json"
         if not os.path.exists(manifest_path):
             # Cria um manifesto inicial padrão se não existir na máquina do usuário particular
             default_manifest = [

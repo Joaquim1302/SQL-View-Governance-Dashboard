@@ -149,7 +149,7 @@ export const DEVELOPMENT_GUIDE_STEPS: DevelopmentGuideStep[] = [
 nexus-view-manager/
 ├── .env                  # Credenciais do Banco compiladas fora do código
 ├── .gitignore            # Ignorar credenciais locais (.env)
-├── views_manifest.json   # O Manifesto controlador de views ativas
+├── create_nexus_views_manifests.json   # O Manifesto controlador de views ativas
 ├── create_views.exe      # Executável compilado via PyInstaller
 ├── src/
 │   ├── app.py            # Interface gráfica principal (PyQt/CustomTkinter)
@@ -190,7 +190,7 @@ class App(ctk.CTk):
         self.btn_deploy.pack(pady=10)
 
     def deploy_manifest(self):
-        # código para ler views_manifest.json e processar
+        # código para ler create_nexus_views_manifests.json e processar
         pass`,
     codeLanguage: "python"
   },
@@ -198,7 +198,7 @@ class App(ctk.CTk):
     id: "step4",
     category: "arquitetura",
     title: "4. Regra de Negócio Git-First",
-    subtitle: "O Manifesto views_manifest.json como Única Fonte da Verdade",
+    subtitle: "O Manifesto create_nexus_views_manifests.json como Única Fonte da Verdade",
     description: "Você estabeleceu uma excelente barreira contra a bagunça! O seu aplicativo Windows lerá o JSON, inspecioná as pastas, lerá os arquivos .sql puros no diretório Git, e os aplicará no banco em lote ou unitário.",
     tips: [
       "Bloqueio de DB-Workbench: Proibir criações manuais cortando acesso de escrita de views direitinho.",
@@ -247,7 +247,7 @@ def validate_view_name(name):
 def run_deploy(config_db):
     print("--- INICIANDO DEPLOY DE VIEWS NEXUS ONE ---")
     
-    with open("views_manifest.json", "r", encoding="utf-8") as f:
+    with open("create_nexus_views_manifests.json", "r", encoding="utf-8") as f:
         manifest = json.load(f)
         
     conn = pymysql.connect(**config_db)
@@ -334,7 +334,7 @@ cd /d "C:\\caminho\\para\\seu\\nexus-view-manager"
 echo [GIT] Sincronizando repositorio Git...
 git pull origin main
 
-echo [LAUNCH] Inicializando Gerenciador e executando views_manifest.json...
+echo [LAUNCH] Inicializando Gerenciador e executando create_nexus_views_manifests.json...
 :: Se rodou o PyInstaller de dentro da pasta 'src', mude para: "src\\dist\\app.exe"
 start "" "dist\\app.exe"
 
